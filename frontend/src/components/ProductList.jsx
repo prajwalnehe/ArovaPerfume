@@ -631,12 +631,12 @@ const ProductList = ({ defaultCategory } = {}) => {
                                             <div className="relative pt-3 pb-2 px-1">
                                                 {/* Product Title */}
                                                 <p className="text-sm font-normal text-gray-900 line-clamp-1 mb-1.5">
-                                                    {productTitle || p.title || 'Untitled Product'}
+                                                    {p.title || 'Untitled Product'}
                                                 </p>
                                                 
-                                                {/* Category Label */}
+                                                {/* Brand */}
                                                 <p className="text-xs font-normal text-gray-600 mb-2.5">
-                                                    {categoryDisplay}
+                                                    {p.product_info?.brand || ''}
                                                 </p>
                                             
                                                 {/* Price */}

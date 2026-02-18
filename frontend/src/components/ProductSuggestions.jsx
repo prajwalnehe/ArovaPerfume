@@ -181,9 +181,12 @@ const ProductSuggestions = ({ currentProductId, category, maxProducts = 8 }) => 
                 
                 {/* Product Details */}
                 <div className="pt-3 pb-4 flex-1 flex flex-col text-left px-2">
-                  <h3 className="text-sm font-semibold text-gray-800 leading-tight mb-2 line-clamp-2 min-h-[2.5rem]">
+                  <h3 className="text-sm font-semibold text-gray-800 leading-tight mb-1 line-clamp-2 min-h-[2.5rem]">
                     {product.title || product.name}
                   </h3>
+                  <p className="text-xs font-normal text-gray-600 mb-2">
+                    {product.product_info?.brand || ''}
+                  </p>
                   <div className="flex items-baseline gap-2">
                     <span className="text-base font-bold text-gray-900">
                       ₹{sellingPrice.toLocaleString()}

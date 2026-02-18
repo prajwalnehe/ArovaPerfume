@@ -225,7 +225,8 @@ const ProductDetail = () => {
     if (productType === 'shoe') {
       if (info.shoeMaterial) fields.push({ label: 'Material', value: info.shoeMaterial });
       if (info.shoeColor) fields.push({ label: 'Color', value: info.shoeColor });
-      if (info.shoeType) fields.push({ label: 'Type', value: info.shoeType });
+      // Type field hidden
+      // if (info.shoeType) fields.push({ label: 'Type', value: info.shoeType });
     }
 
     // Pant specific fields
@@ -233,13 +234,14 @@ const ProductDetail = () => {
       if (info.pantMaterial) fields.push({ label: 'Material', value: info.pantMaterial });
       if (info.pantColor) fields.push({ label: 'Color', value: info.pantColor });
       if (info.pantFit) fields.push({ label: 'Fit', value: info.pantFit });
-      if (info.pantType) fields.push({ label: 'Type', value: info.pantType });
+      // Type field hidden
+      // if (info.pantType) fields.push({ label: 'Type', value: info.pantType });
     }
 
-    // Common included components
-    if (info.IncludedComponents) {
-      fields.push({ label: 'Included Components', value: info.IncludedComponents });
-    }
+    // Common included components - hidden
+    // if (info.IncludedComponents) {
+    //   fields.push({ label: 'Included Components', value: info.IncludedComponents });
+    // }
 
     return fields;
   };

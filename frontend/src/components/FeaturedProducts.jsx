@@ -273,6 +273,9 @@ const FeaturedProducts = ({ category = 'shirts', layout = 'scroll', maxProducts 
                   <h3 className="text-sm font-semibold text-gray-800 leading-tight mb-1 truncate">
                     {product.title || product.name}
                   </h3>
+                  <p className="text-xs font-normal text-gray-600 mb-1">
+                    {product.product_info?.brand || ''}
+                  </p>
                   <div className="text-sm font-bold text-gray-900">
                     ₹ {Math.round((product.price || product.mrp || 0) * (1 - (product.discountPercent || 0) / 100)).toLocaleString()}
                   </div>
@@ -366,6 +369,11 @@ const FeaturedProducts = ({ category = 'shirts', layout = 'scroll', maxProducts 
                 <h3 className="text-sm font-semibold text-gray-800 leading-tight mb-1 truncate">
                   {product.title || product.name}
                 </h3>
+                
+                {/* Brand */}
+                <p className="text-xs font-normal text-gray-600 mb-1">
+                  {product.product_info?.brand || ''}
+                </p>
                 
                 {/* Price - dark, bold, slightly smaller than name */}
                 <div className="text-sm font-bold text-gray-900">

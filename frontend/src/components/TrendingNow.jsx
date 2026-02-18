@@ -233,9 +233,12 @@ const TrendingNow = () => {
                 </div>
 
                 <div className="p-4 bg-white">
-                  <h3 className="text-sm font-medium text-gray-800 mb-2 line-clamp-2 min-h-[2.5rem]">
+                  <h3 className="text-sm font-medium text-gray-800 mb-1 line-clamp-2 min-h-[2.5rem]">
                     {product.title || 'Untitled Product'}
                   </h3>
+                  <p className="text-xs font-normal text-gray-600 mb-2">
+                    {product.product_info?.brand || ''}
+                  </p>
                   
                   <div className="mb-2">
                     <div className="flex items-baseline gap-2 mb-1">
