@@ -1,6 +1,9 @@
-// Base API URL comes from VITE_API_URL (e.g. http://localhost:7000/api)
-// Fallback keeps working with the current backend default on port 7000
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:7000/api').replace(/\/$/, '');
+// VITE_API_URL can be set either to:
+// - http://localhost:7000/api
+// - http://localhost:7000
+// We normalize it to always include `/api` since backend mounts routes under `/api/*`.
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:7000').replace(/\/$/, '');
+const API_URL = API_BASE.endsWith('/api') ? API_BASE : `${API_BASE}/api`;
 
 export const fetchSarees = async (category, options = {}) => {
   try {
