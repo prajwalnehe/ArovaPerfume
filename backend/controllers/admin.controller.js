@@ -3,6 +3,7 @@ import Order from '../models/Order.js';
 import { Address } from '../models/Address.js';
 import { Policy } from '../models/Policy.js';
 import Settings from '../models/Settings.js';
+import User from '../models/User.js';
 
 const ORDER_STATUS_ALLOWED = new Set(['pending','confirmed','packed','shipped','delivered','cancelled','returned','created','on_the_way']);
 const PAYMENT_STATUS_ALLOWED = new Set(['paid','pending','failed','refunded']);
@@ -260,10 +261,22 @@ export async function adminStats(req, res) {
     ]);
     const totalRevenue = revenueAgg?.total || 0;
     
-    // Count all orders (not just delivered)
+    // Count all documents
     const totalOrders = await Order.countDocuments();
     const totalProducts = await Product.countDocuments();
-    return res.json({ totalRevenue, totalOrders, totalProducts });
+    const totalUsers = await User.countDocuments();
+    
+    return res.json({ 
+      totalRevenue, 
+      totalOrders, 
+      totalProducts, 
+      totalUsers,
+      // Additional stats for frontend compatibility
+      usersCount: totalUsers,
+      productsCount: totalProducts,
+      ordersCount: totalOrders,
+      revenue: totalRevenue
+    });
   } catch (err) {
     return res.status(500).json({ message: 'Failed to load stats', error: err.message });
   }

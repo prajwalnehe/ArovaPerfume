@@ -5,7 +5,7 @@ import OTP from '../models/OTP.js';
 
 function generateJwt(userId) {
   const jwtSecret = process.env.JWT_SECRET || 'dev_secret_change_me';
-  return jwt.sign({ userId }, jwtSecret, { expiresIn: '7d' });
+  return jwt.sign({ id: userId }, jwtSecret, { expiresIn: '7d' });
 }
 
 export async function signup(req, res) {
