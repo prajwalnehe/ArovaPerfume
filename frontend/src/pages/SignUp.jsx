@@ -3,6 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
 
 const SignUp = () => {
+  const rawApiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5001/api').replace(/\/$/, '');
+  const apiBase = rawApiBase.endsWith('/api') ? rawApiBase.slice(0, -4) : rawApiBase;
+  const googleAuthUrl = `${apiBase}/api/auth/google`;
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -226,6 +230,18 @@ const SignUp = () => {
                     Sign in here
                   </Link>
                 </p>
+              </div>
+
+              <div className="mt-4">
+                <a
+                  href={googleAuthUrl}
+                  className="w-full inline-flex items-center justify-center gap-2 border border-gray-300 bg-white text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors text-sm"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.2-1.4 3.5-5.5 3.5-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C17 2.9 14.7 2 12 2 6.9 2 2.8 6.1 2.8 11.2S6.9 20.4 12 20.4c6.9 0 9.1-4.8 9.1-7.3 0-.5 0-.9-.1-1.3H12z" />
+                  </svg>
+                  Continue with Google
+                </a>
               </div>
             </div>
           </div>
