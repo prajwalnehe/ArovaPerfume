@@ -50,6 +50,7 @@ const SignIn = () => {
       const resp = await api.signin({ email: formData.email, password: formData.password });
       // store token then redirect to intended page or home
       if (resp?.token) localStorage.setItem('auth_token', resp.token);
+      try { window.dispatchEvent(new Event('auth:updated')); } catch {}
       if (resp?.user?.isAdmin) {
         localStorage.setItem('auth_is_admin', 'true');
       } else {
@@ -114,6 +115,7 @@ const SignIn = () => {
       
       // Store token and redirect
       if (resp?.token) localStorage.setItem('auth_token', resp.token);
+      try { window.dispatchEvent(new Event('auth:updated')); } catch {}
       if (resp?.user?.isAdmin) {
         localStorage.setItem('auth_is_admin', 'true');
       } else {

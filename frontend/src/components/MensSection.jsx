@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchSarees } from '../services/api';
+import ProductImage from './ProductImage';
 
 const MensSection = () => {
   const [products, setProducts] = useState([]);
@@ -52,12 +53,12 @@ const MensSection = () => {
             const notes = item.type || item.subcategory || item.category || '';
             const price = Number(item.price || item.salePrice || item.mrp || 0);
             const mrp = Number(item.mrp || 0);
-            const img = item.images?.image1 || item.image || 'https://via.placeholder.com/500x600?text=No+Image';
+            const img = item.images?.image1 || item.image;
 
             return (
               <Link key={id} to={`/product/${id}`} className="group block">
                 <div className="relative bg-white border border-gray-200 overflow-hidden">
-                  <img src={img} alt={name} className="w-full aspect-[4/5] object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <ProductImage src={img} alt={name} className="w-full aspect-[4/5] object-cover group-hover:scale-105 transition-transform duration-500" />
                   {idx === 0 && (
                     <span className="absolute top-2 left-2 bg-[#f16b80] text-white text-[9px] px-2 py-1 rounded-full font-semibold">
                       HIGHLY RECOMMENDED

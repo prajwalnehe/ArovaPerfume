@@ -46,6 +46,7 @@ export const api = {
   getCart: () => request('/cart', { method: 'GET' }),
   addToCart: ({ productId, quantity = 1, size }) => request('/cart/add', { method: 'POST', body: JSON.stringify({ productId, quantity, size }) }),
   removeFromCart: (productId) => request(`/cart/remove/${productId}`, { method: 'DELETE' }),
+  updateCart: ({ productId, quantity }) => request('/cart/update', { method: 'PUT', body: JSON.stringify({ productId, quantity }) }),
   // Admin endpoints
   admin: {
     stats: () => request('/admin/stats', { method: 'GET' }),

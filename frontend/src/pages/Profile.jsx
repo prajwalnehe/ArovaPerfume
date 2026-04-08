@@ -3,6 +3,7 @@ import { api } from '../utils/api';
 import { getMyAddress, getMyOrders } from '../services/api';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { FiSettings, FiUser, FiPackage, FiMapPin, FiLogOut, FiRefreshCw, FiShoppingBag, FiMail, FiPhone, FiEdit2, FiHeart, FiHome } from 'react-icons/fi';
+import ProductImage from '../components/ProductImage';
 
 export default function Profile() {
   const initialTab = (() => {
@@ -482,10 +483,10 @@ export default function Profile() {
                             <div className="space-y-3 pt-4 border-t border-gray-200">
                               {order.items?.map((it, idx) => (
                                 <div key={idx} className="flex items-center gap-4">
-                                  <img 
-                                    src={it.product?.images?.image1 || 'https://via.placeholder.com/80'} 
-                                    alt={it.product?.title || ''} 
-                                    className="w-16 h-16 object-cover rounded-lg border border-gray-200" 
+                                  <ProductImage
+                                    src={it.product?.images?.image1}
+                                    alt={it.product?.title || ''}
+                                    className="w-16 h-16 object-cover rounded-lg border border-gray-200"
                                   />
                                   <div className="flex-1 min-w-0">
                                     <div className="font-medium text-gray-900 truncate">{it.product?.title || 'Product'}</div>

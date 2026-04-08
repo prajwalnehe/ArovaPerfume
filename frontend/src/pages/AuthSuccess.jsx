@@ -12,6 +12,7 @@ export default function AuthSuccess() {
         const data = await api.me();
         const user = data?.user || null;
         try { localStorage.setItem('auth_token', 'cookie'); } catch {}
+        try { window.dispatchEvent(new Event('auth:updated')); } catch {}
         if (user?.isAdmin) {
           try { localStorage.setItem('auth_is_admin', 'true'); } catch {}
         } else {

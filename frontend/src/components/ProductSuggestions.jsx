@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
 import { fetchSarees } from '../services/api';
+import ProductImage from './ProductImage';
 
 const readWishlist = () => {
   try {
@@ -138,7 +139,7 @@ const ProductSuggestions = ({ currentProductId, category, maxProducts = 8 }) => 
           {suggestedProducts.map((product) => {
             const productId = product._id || product.id;
             const sellingPrice = product.price || Math.round(product.mrp - (product.mrp * (product.discountPercent || 0) / 100));
-            const imageUrl = product.images?.image1 || product.image || 'https://via.placeholder.com/400x500?text=No+Image';
+            const imageUrl = product.images?.image1 || product.image;
             
             return (
               <div
@@ -148,14 +149,10 @@ const ProductSuggestions = ({ currentProductId, category, maxProducts = 8 }) => 
               >
                 {/* Image Container */}
                 <div className="relative pt-[130%]">
-                  <img
+                  <ProductImage
                     src={imageUrl}
                     alt={product.title || product.name}
                     className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = 'https://via.placeholder.com/400x500?text=No+Image';
-                    }}
                   />
                   
                   {/* Wishlist Icon */}

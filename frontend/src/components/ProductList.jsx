@@ -7,6 +7,7 @@ import { FaRupeeSign, FaSpinner, FaFilter, FaTimes } from 'react-icons/fa';
 import { fetchSarees } from '../services/api';
 import ProductFilters from './ProductFilters'; 
 import { useCart } from '../context/CartContext';
+import ProductImage from './ProductImage';
 // If '../services/api' does not exist, the component will fail to load data.
 
 // Add CSS to hide scrollbar (Good for Tailwind UI)
@@ -39,7 +40,6 @@ const writeWishlist = (items) => {
 };
 
 const ProductList = ({ defaultCategory } = {}) => {
-    const FALLBACK_IMAGE = 'https://res.cloudinary.com/dnyp5jknp/image/upload/v1775567474/d3b4e9cd-feaf-4362-9a38-20c30bbb5db9.png';
     const { categoryName, subCategoryName } = useParams();
     const navigate = useNavigate();
     
@@ -53,6 +53,7 @@ const ProductList = ({ defaultCategory } = {}) => {
 
     const { addToCart } = useCart();
     const [addingToCartId, setAddingToCartId] = useState(null);
+    const [toast, setToast] = useState({ show: false, text: '', type: 'success' });
     
     // Filter states
     const [selectedPriceRange, setSelectedPriceRange] = useState(null);
@@ -392,9 +393,14 @@ const ProductList = ({ defaultCategory } = {}) => {
         try {
             setAddingToCartId(pid);
             // For list view we don't force a size; server accepts `size` as optional.
-            await addToCart(pid, 1, null);
+            const result = await addToCart(product, 1, null);
+            if (result?.redirected) return;
+            setToast({ show: true, text: 'Added to cart', type: 'success' });
+            setTimeout(() => setToast({ show: false, text: '', type: 'success' }), 1800);
         } catch (err) {
             console.error('Add to cart failed:', err);
+            setToast({ show: true, text: err?.message || 'Failed to add to cart', type: 'error' });
+            setTimeout(() => setToast({ show: false, text: '', type: 'success' }), 1800);
         } finally {
             setAddingToCartId(null);
         }
@@ -493,6 +499,11 @@ const ProductList = ({ defaultCategory } = {}) => {
     return (
         <div className="min-h-screen bg-white">
             <style>{styles}</style>
+            {toast.show && (
+                <div className={`${toast.type === 'error' ? 'bg-rose-600' : 'bg-emerald-600'} fixed bottom-4 right-4 z-[100] text-white px-4 py-2 rounded shadow-lg`}>
+                    {toast.text}
+                </div>
+            )}
             
             {/* Loading Bar */}
             {loading && (
@@ -559,11 +570,10 @@ const ProductList = ({ defaultCategory } = {}) => {
                                                                     {badgeLabel}
                                                                 </span>
                                                             )}
-                                                            <img
-                                                                src={p.images?.image1 || p.image || FALLBACK_IMAGE}
+                                                            <ProductImage
+                                                                src={p.images?.image1 || p.image}
                                                                 alt={p.title}
                                                                 className="w-full aspect-[3/4] object-cover transition-transform duration-500 group-hover:scale-105"
-                                                                onError={(e) => { e.target.onerror = null; e.target.src = FALLBACK_IMAGE; }}
                                                             />
                                                         </div>
 
@@ -591,7 +601,8 @@ const ProductList = ({ defaultCategory } = {}) => {
                                                             <button
                                                                 type="button"
                                                                 onClick={(e) => handleAddToCartFromCard(p, e)}
-                                                                className="mt-2 block w-full border border-black text-xs sm:text-sm py-2 hover:bg-gray-50 transition-colors"
+                                                                disabled={addingToCartId === pid}
+                                                                className="mt-2 block w-full border border-black text-xs sm:text-sm py-2 hover:bg-gray-50 transition-colors disabled:opacity-60"
                                                             >
                                                                 {addingToCartId === pid ? 'Adding...' : 'Add to cart'}
                                                             </button>

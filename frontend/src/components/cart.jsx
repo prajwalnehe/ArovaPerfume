@@ -14,8 +14,6 @@ function Cart() {
     clearCart 
   } = useCart();
 
-  console.log('Cart component rendered with:', { cart, cartTotal, cartCount }); // Debug log
-
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
@@ -81,6 +79,10 @@ function Cart() {
                         src={item.image}
                         alt={item.name}
                         className="w-full h-full object-contain cursor-pointer"
+                        onError={(e) => {
+                          if (e.currentTarget.src.endsWith('/no-image.png')) return;
+                          e.currentTarget.src = '/no-image.png';
+                        }}
                         onClick={() => {
                           const pid = getProductId(item);
                           if (!pid) return;

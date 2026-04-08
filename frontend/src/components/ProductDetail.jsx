@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaBolt, FaRegHeart, FaShoppingCart, FaSpinner } from "react-icons/fa";
+import { FaBolt, FaShoppingCart, FaSpinner } from "react-icons/fa";
 import { useCart } from "../context/CartContext";
 import { fetchSareeById } from "../services/api";
 import ProductSuggestions from "./ProductSuggestions";
 
-const FALLBACK_IMAGE = "https://res.cloudinary.com/dnyp5jknp/image/upload/v1775567474/d3b4e9cd-feaf-4362-9a38-20c30bbb5db9.png";
+const FALLBACK_IMAGE = "/no-image.png";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -17,6 +17,8 @@ const ProductDetail = () => {
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [selectedImageIdx, setSelectedImageIdx] = useState(0);
+  const [toast, setToast] = useState({ show: false, text: "", type: "success" });
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -49,8 +51,12 @@ const ProductDetail = () => {
       .filter(Boolean)
       .map((u) => String(u));
     const unique = [...new Set(list)];
-    return unique.length ? unique.slice(0, 4) : [FALLBACK_IMAGE, FALLBACK_IMAGE, FALLBACK_IMAGE, FALLBACK_IMAGE];
+    return unique.length ? unique.slice(0, 6) : [FALLBACK_IMAGE];
   }, [product]);
+
+  useEffect(() => {
+    setSelectedImageIdx(0);
+  }, [id, images.length]);
 
   const rating = Number(product?.rating || 0);
   const reviews = Number(product?.totalReviews || 0);
@@ -68,26 +74,27 @@ const ProductDetail = () => {
     { label: "Brand", value: product?.product_info?.brand || product?.brand },
     { label: "Category", value: product?.category },
     { label: "Type", value: product?.type || product?.subcategory },
-    { label: "SKU", value: product?.sku },
     { label: "Gender", value: product?.gender },
     { label: "Stock", value: product?.quantity != null ? `${product.quantity} available` : null },
-    { label: "Coupon", value: product?.couponCode || null },
-    { label: "Offer Discount", value: product?.discount ? `${product.discount}%` : null },
-    { label: "Applicable On", value: product?.applicableOn || null },
     { label: "Secure Transaction", value: product?.secureTransaction ? "Yes" : "No" },
-    { label: "Pay On Delivery", value: product?.payOnDelivery ? "Yes" : "No" },
     { label: "Easy Tracking", value: product?.easyTracking ? "Yes" : "No" },
     { label: "Free Delivery", value: product?.freeDelivery ? "Yes" : "No" },
   ].filter((f) => f.value !== null && f.value !== undefined && f.value !== "");
 
   const handleAddToCart = async () => {
     if (!product) return;
+    const cartProductId = String(product?._id || id || "");
+    if (!cartProductId) return;
     setIsAdding(true);
     try {
-      await addToCart(id, quantity, null);
+      const result = await addToCart({ ...product, _id: cartProductId }, quantity, null);
+      if (result?.redirected) return;
+      setToast({ show: true, text: "Added to cart", type: "success" });
+      setTimeout(() => setToast({ show: false, text: "", type: "success" }), 1800);
     } catch (e) {
       console.error("Error adding to cart:", e);
-      alert("Failed to add item to cart. Please try again.");
+      setToast({ show: true, text: e?.message || "Failed to add to cart", type: "error" });
+      setTimeout(() => setToast({ show: false, text: "", type: "success" }), 1800);
     } finally {
       setIsAdding(false);
     }
@@ -122,27 +129,55 @@ const ProductDetail = () => {
 
   return (
     <div className="min-h-screen bg-[#f7f7f7] pb-20 sm:pb-6">
+      {toast.show && (
+        <div className={`${toast.type === "error" ? "bg-rose-600" : "bg-emerald-600"} fixed bottom-4 right-4 z-[100] text-white px-4 py-2 rounded shadow-lg`}>
+          {toast.text}
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 pt-4">
         <div className="text-xs text-gray-500 mb-3">
           Home <span className="mx-1">›</span> {product.category || "Collection"} <span className="mx-1">›</span> {product.title}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left image collage */}
-          <div className="grid grid-cols-2 gap-2">
-            {images.map((img, idx) => (
-              <div key={`${img}-${idx}`} className="bg-white overflow-hidden">
-                <img
-                  src={img}
-                  alt={`${product.title} ${idx + 1}`}
-                  className="w-full h-full object-cover aspect-square"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = FALLBACK_IMAGE;
-                  }}
-                />
+          {/* Left image gallery */}
+          <div>
+            <div className="bg-white p-2 border border-gray-100">
+              <img
+                src={images[selectedImageIdx] || FALLBACK_IMAGE}
+                alt={product.title}
+                className="w-full aspect-square object-contain"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = FALLBACK_IMAGE;
+                }}
+              />
+            </div>
+
+            {images.length > 1 && (
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {images.map((img, idx) => (
+                  <button
+                    key={`${img}-${idx}`}
+                    type="button"
+                    onClick={() => setSelectedImageIdx(idx)}
+                    className={`bg-white border p-1 ${
+                      idx === selectedImageIdx ? "border-black" : "border-gray-200"
+                    }`}
+                  >
+                    <img
+                      src={img}
+                      alt={`${product.title} ${idx + 1}`}
+                      className="w-full aspect-square object-cover"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = FALLBACK_IMAGE;
+                      }}
+                    />
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
           </div>
 
           {/* Right details panel */}
@@ -226,27 +261,9 @@ const ProductDetail = () => {
               Buy Now
             </button>
 
-            <button
-              type="button"
-              className="w-full mt-2 border border-gray-400 text-gray-700 py-2 text-sm hover:bg-gray-50 flex items-center justify-center gap-2"
-            >
-              <FaRegHeart className="w-4 h-4" />
-              Buy any 3 x 50ml @2799
-            </button>
-
-            <div className="mt-4 text-xs text-gray-600 space-y-1">
-              <p>✓ Check COD by entering pin-code below</p>
-              <button className="text-blue-600 hover:text-blue-700 underline">Enter area Pincode</button>
-            </div>
-
-            <div className="mt-4 grid grid-cols-3 gap-2 text-[10px] text-center text-gray-600 border-t border-b py-3">
+            <div className="mt-4 grid grid-cols-2 gap-2 text-[10px] text-center text-gray-600 border-t border-b py-3">
               <div>Secure Transaction</div>
-              <div>Pay on Delivery</div>
               <div>Easy Order Tracking</div>
-            </div>
-
-            <div className="mt-4 bg-black text-white text-xs text-center py-2 px-3 font-semibold">
-              USE CODE SMELLGOOD5 TO GET EXTRA 5% OFF ON PREPAID ORDERS
             </div>
 
             {product.description && (

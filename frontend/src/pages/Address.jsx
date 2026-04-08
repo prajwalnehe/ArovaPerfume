@@ -742,6 +742,19 @@ export default function AddressForm() {
                 <span>₹{priceDetails.subtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm">
+                <span>Bag savings</span>
+                <span className="text-green-600">-₹{priceDetails.savings.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm items-center">
+                <span>Coupon savings</span>
+                <button
+                  type="button"
+                  className="text-[#2f6f89] font-semibold hover:text-[#24586d] transition-colors"
+                >
+                  Apply coupon
+                </button>
+              </div>
+              <div className="flex justify-between text-sm">
                 <span>Shipping</span>
                 <span className={priceDetails.shippingCharge > 0 ? 'text-gray-600' : 'text-green-600'}>
                   {priceDetails.shippingCharge > 0 ? `₹${priceDetails.shippingCharge.toLocaleString()}` : 'Free'}

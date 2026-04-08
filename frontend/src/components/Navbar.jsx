@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { searchProducts } from '../services/api';
+import ProductImage from './ProductImage';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -173,10 +174,10 @@ const Navbar = () => {
     <div className="relative z-[70]">
       <div className="bg-black text-white text-[10px] sm:text-xs md:text-sm font-medium tracking-wide py-1.5 overflow-hidden whitespace-nowrap">
         <div className="animate-scroll inline-flex min-w-max">
-          <span className="px-4 sm:px-6">• 1st Order - 50% Off • USE CODE SMELLGOOD5 FOR EXTRA 5% OFF PREPAID ORDERS • GET A FREE SAMPLE ON EVERY ORDER •</span>
-          <span className="px-4 sm:px-6">• 1st Order - 50% Off • USE CODE SMELLGOOD5 FOR EXTRA 5% OFF PREPAID ORDERS • GET A FREE SAMPLE ON EVERY ORDER •</span>
-          <span className="px-4 sm:px-6">• 1st Order - 50% Off • USE CODE SMELLGOOD5 FOR EXTRA 5% OFF PREPAID ORDERS • GET A FREE SAMPLE ON EVERY ORDER •</span>
-          <span className="px-4 sm:px-6">• 1st Order - 50% Off • USE CODE SMELLGOOD5 FOR EXTRA 5% OFF PREPAID ORDERS • GET A FREE SAMPLE ON EVERY ORDER •</span>
+          <span className="px-4 sm:px-6">• 1st Order - 50% Off • USE CODE SMELLGOOD5 TO GET EXTRA 5% OFF ON PREPAID ORDERS • GET A FREE SAMPLE ON EVERY ORDER •</span>
+          <span className="px-4 sm:px-6">• 1st Order - 50% Off • USE CODE SMELLGOOD5 TO GET EXTRA 5% OFF ON PREPAID ORDERS • GET A FREE SAMPLE ON EVERY ORDER •</span>
+          <span className="px-4 sm:px-6">• 1st Order - 50% Off • USE CODE SMELLGOOD5 TO GET EXTRA 5% OFF ON PREPAID ORDERS • GET A FREE SAMPLE ON EVERY ORDER •</span>
+          <span className="px-4 sm:px-6">• 1st Order - 50% Off • USE CODE SMELLGOOD5 TO GET EXTRA 5% OFF ON PREPAID ORDERS • GET A FREE SAMPLE ON EVERY ORDER •</span>
         </div>
       </div>
       <nav className="bg-white border-b border-gray-200 border-t-0">
@@ -225,11 +226,10 @@ const Navbar = () => {
                             }}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left"
                           >
-                            <img
-                              src={p.images?.image1 || p.image || 'https://via.placeholder.com/60x80?text=No+Image'}
+                            <ProductImage
+                              src={p.images?.image1 || p.image}
                               alt={p.title || p.name || 'Product'}
                               className="w-12 h-16 object-cover rounded-md border border-gray-100"
-                              onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/60x80?text=No+Image'; }}
                             />
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium text-gray-900 truncate">{p.title || p.name || 'Product'}</p>
@@ -333,11 +333,10 @@ const Navbar = () => {
                             }}
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left"
                           >
-                            <img
-                              src={p.images?.image1 || p.image || 'https://via.placeholder.com/60x80?text=No+Image'}
+                            <ProductImage
+                              src={p.images?.image1 || p.image}
                               alt={p.title || p.name || 'Product'}
                               className="w-12 h-16 object-cover rounded-md border border-gray-100"
-                              onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/60x80?text=No+Image'; }}
                             />
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium text-gray-900 truncate">{p.title || p.name || 'Product'}</p>
