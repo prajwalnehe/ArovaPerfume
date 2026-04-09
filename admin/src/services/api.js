@@ -56,5 +56,15 @@ export const usersAPI = {
   remove: (id) => api.delete(`/admin/users/${id}`), // This might need to be implemented
 }
 
+// Coupons APIs
+export const couponAPI = {
+  getAll: () => api.get('/coupons/admin/all'),
+  getById: (id) => api.get(`/coupons/${id}`),
+  create: (payload) => api.post('/coupons', payload),
+  update: (id, payload) => api.put(`/coupons/${id}`, payload),
+  remove: (id) => api.delete(`/coupons/${id}`),
+  toggleStatus: (id) => api.patch(`/coupons/${id}/toggle`),
+}
+
 export default api
 

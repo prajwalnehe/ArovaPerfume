@@ -3,7 +3,15 @@ import User from '../models/User.js';
 
 export default async function cookieJwtAuth(req, res, next) {
   try {
-    const token = req.cookies?.jwt || req.cookies?.token;
+    // Check cookies first, then Authorization header
+    let token = req.cookies?.jwt || req.cookies?.token;
+    if (!token) {
+      const authHeader = req.headers.authorization || '';
+      const parts = authHeader.split(' ');
+      if (parts.length === 2 && /^Bearer$/i.test(parts[0])) {
+        token = parts[1];
+      }
+    }
     if (!token) return res.status(401).json({ message: 'No auth token' });
     const secret = process.env.JWT_SECRET || 'dev_secret_change_me';
     const payload = jwt.verify(token, secret);

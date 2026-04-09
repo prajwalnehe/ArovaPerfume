@@ -14,6 +14,13 @@ const CartSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', unique: true, index: true, required: true, alias: 'userId' },
     items: [CartItemSchema],
+    appliedCoupon: {
+      code: { type: String },
+      discountType: { type: String, enum: ['percentage', 'fixed'] },
+      discountValue: { type: Number },
+      discountAmount: { type: Number },
+      minOrderAmount: { type: Number },
+    },
     updatedAt: { type: Date, default: Date.now },
   },
   { timestamps: true }

@@ -32,8 +32,77 @@ export default function Profile() {
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Order Timeline Component
+  const OrderTimeline = ({ status }) => {
+    const steps = [
+      { key: 'pending', label: 'Pending', icon: '⏳' },
+      { key: 'confirmed', label: 'Confirmed', icon: '⏳' },
+      { key: 'packed', label: 'Packed', icon: '📦' },
+      { key: 'shipped', label: 'Shipped', icon: '🚚' },
+      { key: 'delivered', label: 'Delivered', icon: '✅' }
+    ];
+    
+    const currentStatus = String(status || '').toLowerCase();
+    const cancelled = currentStatus === 'cancelled';
+    const returned = currentStatus === 'returned';
+    
+    // Find current step index
+    let currentIndex = steps.findIndex(s => s.key === currentStatus);
+    if (currentIndex === -1) currentIndex = 0;
+    
+    return (
+      <div className="py-4">
+        <div className="flex items-center justify-between">
+          {steps.map((step, index) => {
+            const isCompleted = index <= currentIndex && !cancelled;
+            const isCurrent = index === currentIndex && !cancelled && !returned;
+            
+            return (
+              <div key={step.key} className="flex flex-col items-center flex-1 relative">
+                {/* Connector line */}
+                {index < steps.length - 1 && (
+                  <div className={`absolute top-4 left-1/2 w-full h-0.5 ${
+                    index < currentIndex ? 'bg-green-500' : 'bg-gray-200'
+                  }`} style={{ transform: 'translateX(50%)' }} />
+                )}
+                
+                {/* Step circle */}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 z-10 ${
+                  isCompleted 
+                    ? 'bg-green-500 border-green-500 text-white' 
+                    : isCurrent
+                      ? 'bg-blue-500 border-blue-500 text-white'
+                      : 'bg-gray-100 border-gray-300 text-gray-400'
+                }`}>
+                  {isCompleted ? '✓' : step.icon}
+                </div>
+                
+                {/* Step label */}
+                <span className={`text-xs mt-2 font-medium ${
+                  isCompleted || isCurrent ? 'text-gray-900' : 'text-gray-400'
+                }`}>
+                  {step.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        
+        {(cancelled || returned) && (
+          <div className={`mt-4 p-3 rounded-lg text-center ${
+            cancelled ? 'bg-red-50 text-red-700' : 'bg-orange-50 text-orange-700'
+          }`}>
+            <span className="text-lg mr-2">{cancelled ? '❌' : '🔄'}</span>
+            <span className="font-medium">Order {cancelled ? 'Cancelled' : 'Returned'}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const StatusBadge = ({ status }) => {
     const s = String(status || '').toLowerCase();
@@ -145,8 +214,11 @@ export default function Profile() {
     try {
       setLoadingOrders(true);
       const data = await getMyOrders();
-      setOrders(Array.isArray(data) ? data : []);
+      // Handle new API response format: { success: true, orders: [...], count: n }
+      const ordersArray = data?.orders || (Array.isArray(data) ? data : []);
+      setOrders(ordersArray);
     } catch (e) {
+      console.error('Error fetching orders:', e);
       setOrders([]);
     } finally {
       setLoadingOrders(false);
@@ -539,20 +611,38 @@ export default function Profile() {
                     {orders.map((order) => {
                       const dateTime = formatDate(order.createdAt);
                       const totalItems = order.items?.reduce((sum, it) => sum + (it.quantity || 1), 0) || 0;
-                      // Calculate total from items if order.amount is missing or 0
-                      const calculatedTotal = order.items?.reduce((sum, it) => sum + ((it.price || 0) * (it.quantity || 1)), 0) || 0;
-                      const orderTotal = order.amount > 0 ? order.amount : calculatedTotal;
+                      
+                      // Use priceDetails from backend if available, otherwise calculate
+                      const priceDetails = order.priceDetails || {};
+                      const itemsPrice = priceDetails.itemsPrice || order.items?.reduce((sum, it) => sum + ((it.price || 0) * (it.quantity || 1)), 0) || 0;
+                      const taxPrice = priceDetails.taxPrice || Math.round(itemsPrice * 0.05) || 0;
+                      const shippingPrice = priceDetails.shippingPrice || (itemsPrice >= 5000 ? 0 : 99) || 0;
+                      const discount = priceDetails.discount || 0;
+                      const totalPrice = priceDetails.totalPrice || (itemsPrice + taxPrice + shippingPrice - discount) || order.amount || 0;
+                      const couponCode = priceDetails.couponCode;
                       
                       return (
-                        <div key={order._id} className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                        <div 
+                          key={order._id} 
+                          onClick={() => setSelectedOrder(order)}
+                          className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                        >
                           {/* Order Header */}
                           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium text-gray-900">#{String(order._id).slice(-8).toUpperCase()}</span>
+                              <span className="text-sm font-medium text-gray-900">#{order.orderId || String(order._id).slice(-8).toUpperCase()}</span>
                               <span className="text-xs text-gray-500">•</span>
                               <span className="text-xs text-gray-500">{dateTime.date}</span>
                             </div>
-                            <StatusBadge status={order.status || order.orderStatus} />
+                            <div className="flex items-center gap-2">
+                              <StatusBadge status={order.orderStatus || order.status} />
+                              <span className="text-xs text-blue-600 font-medium">View Details →</span>
+                            </div>
+                          </div>
+
+                          {/* Order Timeline */}
+                          <div className="px-4 py-2 bg-white border-b border-gray-100">
+                            <OrderTimeline status={order.orderStatus || order.status} />
                           </div>
 
                           {/* Products */}
@@ -560,9 +650,9 @@ export default function Profile() {
                             {order.items?.map((it, idx) => {
                               const product = it.product;
                               // Use product data if available, otherwise fall back to item data
-                              const productTitle = product?.title || product?.name || it.title || it.name || 'Product';
+                              const productTitle = it.name || product?.title || product?.name || it.title || 'Product';
                               const productBrand = product?.brand || it.brand || '';
-                              const productImage = product?.images?.[0] || product?.image || it.image || '/no-image.png';
+                              const productImage = it.image || product?.images?.[0] || product?.image || '/no-image.png';
                               // The price stored in order is the sale price user paid
                               const salePrice = it.price || 0;
                               const quantity = it.quantity || 1;
@@ -609,12 +699,51 @@ export default function Profile() {
                             })}
                           </div>
 
+                          {/* Price Details */}
+                          <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                            <h5 className="text-xs font-semibold text-gray-700 uppercase mb-2">Price Details</h5>
+                            <div className="space-y-1 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Items Price ({totalItems} item{totalItems > 1 ? 's' : ''})</span>
+                                <span className="text-gray-900">₹{itemsPrice.toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Tax (5%)</span>
+                                <span className="text-gray-900">₹{taxPrice.toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Shipping</span>
+                                <span className={shippingPrice === 0 ? 'text-green-600' : 'text-gray-900'}>
+                                  {shippingPrice === 0 ? 'FREE' : `₹${shippingPrice.toLocaleString('en-IN')}`}
+                                </span>
+                              </div>
+                              {discount > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-green-700 font-medium">
+                                    Discount {couponCode && `(${couponCode})`}
+                                  </span>
+                                  <span className="text-green-600 font-medium">-₹{discount.toLocaleString('en-IN')}</span>
+                                </div>
+                              )}
+                              <div className="border-t border-gray-300 my-2 pt-2">
+                                <div className="flex justify-between font-semibold text-base">
+                                  <span className="text-gray-900">Total Price</span>
+                                  <span className="text-gray-900">₹{totalPrice.toLocaleString('en-IN')}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* Order Footer */}
-                          <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-                            <span className="text-xs text-gray-500">{totalItems} item{totalItems > 1 ? 's' : ''}</span>
+                          <div className="px-4 py-3 bg-white border-t border-gray-200 flex items-center justify-between">
+                            <div className="text-xs text-gray-500">
+                              Payment: <span className="font-medium text-gray-700">{(order.paymentMethod || 'COD').toUpperCase()}</span>
+                              {' • '}
+                              Status: <span className="font-medium text-gray-700">{(order.paymentStatus || (order.isPaid ? 'Paid' : 'Pending')).toUpperCase()}</span>
+                            </div>
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-gray-600">Order Total:</span>
-                              <span className="text-base font-bold text-gray-900">₹{orderTotal.toLocaleString('en-IN')}</span>
+                              <span className="text-lg font-bold text-gray-900">₹{totalPrice.toLocaleString('en-IN')}</span>
                             </div>
                           </div>
                         </div>
@@ -636,6 +765,161 @@ export default function Profile() {
                     </button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Order Details Modal */}
+            {selectedOrder && (
+              <div 
+                className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+                onClick={() => setSelectedOrder(null)}
+              >
+                <div 
+                  className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Modal Header */}
+                  <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">
+                        Order #{selectedOrder.orderId || String(selectedOrder._id).slice(-8).toUpperCase()}
+                      </h2>
+                      <p className="text-sm text-gray-500">
+                        Placed on {formatDate(selectedOrder.createdAt).date}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => setSelectedOrder(null)}
+                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                      <span className="text-2xl">×</span>
+                    </button>
+                  </div>
+
+                  <div className="p-6 space-y-6">
+                    {/* Order Timeline */}
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2">Order Status</h3>
+                      <OrderTimeline status={selectedOrder.orderStatus || selectedOrder.status} />
+                    </div>
+
+                    {/* Order Items */}
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                        Order Items ({selectedOrder.items?.length || 0})
+                      </h3>
+                      <div className="space-y-3">
+                        {selectedOrder.items?.map((item, idx) => {
+                          const product = item.product || {};
+                          const title = item.name || product?.title || product?.name || 'Product';
+                          const image = item.image || product?.images?.[0] || product?.image || '/no-image.png';
+                          const price = item.price || 0;
+                          const qty = item.quantity || 1;
+                          
+                          return (
+                            <div key={idx} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
+                              <img 
+                                src={image} 
+                                alt={title}
+                                className="w-16 h-16 object-cover rounded-lg"
+                              />
+                              <div className="flex-1">
+                                <h4 className="text-sm font-medium text-gray-900">{title}</h4>
+                                <p className="text-xs text-gray-500">Qty: {qty}</p>
+                                <p className="text-sm font-semibold text-gray-900 mt-1">
+                                  ₹{(price * qty).toLocaleString('en-IN')}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Price Details */}
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">Price Details</h3>
+                      {(() => {
+                        const pd = selectedOrder.priceDetails || {};
+                        const itemsTotal = pd.itemsPrice || selectedOrder.items?.reduce((sum, it) => sum + ((it.price || 0) * (it.quantity || 1)), 0) || 0;
+                        const tax = pd.taxPrice || Math.round(itemsTotal * 0.05) || 0;
+                        const shipping = pd.shippingPrice || (itemsTotal >= 5000 ? 0 : 99) || 0;
+                        const disc = pd.discount || 0;
+                        const total = pd.totalPrice || (itemsTotal + tax + shipping - disc) || selectedOrder.amount || 0;
+                        
+                        return (
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Items Price</span>
+                              <span className="text-gray-900">₹{itemsTotal.toLocaleString('en-IN')}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Tax (5%)</span>
+                              <span className="text-gray-900">₹{tax.toLocaleString('en-IN')}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Shipping</span>
+                              <span className={shipping === 0 ? 'text-green-600' : 'text-gray-900'}>
+                                {shipping === 0 ? 'FREE' : `₹${shipping.toLocaleString('en-IN')}`}
+                              </span>
+                            </div>
+                            {disc > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-green-700 font-medium">
+                                  Discount {pd.couponCode && `(${pd.couponCode})`}
+                                </span>
+                                <span className="text-green-600 font-medium">-₹{disc.toLocaleString('en-IN')}</span>
+                              </div>
+                            )}
+                            <div className="border-t border-gray-300 pt-2 mt-2">
+                              <div className="flex justify-between font-semibold text-base">
+                                <span className="text-gray-900">Total</span>
+                                <span className="text-gray-900">₹{total.toLocaleString('en-IN')}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Shipping Address */}
+                    {selectedOrder.shippingAddress && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-700 mb-2">Shipping Address</h3>
+                        <div className="bg-gray-50 rounded-xl p-4 text-sm">
+                          <p className="font-medium text-gray-900">{selectedOrder.shippingAddress.fullName}</p>
+                          <p className="text-gray-600">{selectedOrder.shippingAddress.address}</p>
+                          {selectedOrder.shippingAddress.locality && (
+                            <p className="text-gray-600">{selectedOrder.shippingAddress.locality}</p>
+                          )}
+                          <p className="text-gray-600">
+                            {selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.state} - {selectedOrder.shippingAddress.pincode}
+                          </p>
+                          <p className="text-gray-600 mt-1">Phone: {selectedOrder.shippingAddress.mobileNumber}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Payment Info */}
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2">Payment Information</h3>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-500">Method</p>
+                          <p className="font-medium text-gray-900 capitalize">
+                            {selectedOrder.paymentMethod || 'COD'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Status</p>
+                          <p className="font-medium text-gray-900">
+                            {selectedOrder.paymentStatus || (selectedOrder.isPaid ? 'Paid' : 'Pending')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

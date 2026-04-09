@@ -1,22 +1,40 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaTrash, FaPlus, FaMinus, FaArrowLeft, FaShoppingCart, FaHeart } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaMinus, FaArrowLeft, FaShoppingCart, FaHeart, FaTimes, FaCheck, FaTicketAlt } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 
 function Cart() {
   const navigate = useNavigate();
-  const { 
-    cart = [], 
-    updateQuantity, 
-    removeFromCart, 
-    cartTotal = 0, 
+  const [couponCode, setCouponCode] = useState('');
+  const [couponMessage, setCouponMessage] = useState(null);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+  
+  const {
+    cart = [],
+    updateQuantity,
+    removeFromCart,
+    cartTotal = 0,
     cartCount = 0,
-    clearCart 
+    clearCart,
+    appliedCoupon,
+    couponDiscount,
+    finalTotal,
+    applyCouponCode,
+    removeCoupon,
+    eligibleCoupons
   } = useCart();
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  // Clear coupon message after 3 seconds
+  useEffect(() => {
+    if (couponMessage) {
+      const timer = setTimeout(() => setCouponMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [couponMessage]);
 
   const handleQuantityChange = (itemId, newQuantity) => {
     console.log('Quantity change:', itemId, newQuantity); // Debug log
@@ -30,16 +48,43 @@ function Cart() {
     }
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponMessage({ type: 'error', text: 'Please enter a coupon code' });
+      return;
+    }
+    
+    setApplyingCoupon(true);
+    const result = await applyCouponCode(couponCode.trim());
+    setApplyingCoupon(false);
+    
+    setCouponMessage({ 
+      type: result.success ? 'success' : 'error', 
+      text: result.message 
+    });
+    
+    if (result.success) {
+      setCouponCode('');
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    removeCoupon();
+    setCouponMessage({ type: 'success', text: 'Coupon removed' });
+  };
+
   // Calculate price details similar to checkout
   const calculatePriceDetails = () => {
     const subtotal = cartTotal || 0;
-    const shippingCharge = subtotal < 5000 ? 99 : 0;
-    const tax = Math.round(subtotal * 0.05); // 5% tax
-    const totalPayable = subtotal + shippingCharge + tax;
-    const savings = Math.round(subtotal * 0.35); // Assuming 35% savings
+    const discount = couponDiscount || 0;
+    const shippingCharge = (subtotal - discount) < 5000 ? 99 : 0;
+    const tax = Math.round((subtotal - discount) * 0.05); // 5% tax on discounted amount
+    const totalPayable = subtotal - discount + shippingCharge + tax;
+    const savings = Math.round(subtotal * 0.35) + discount; // Product savings + coupon savings
 
     return {
       subtotal,
+      discount,
       shippingCharge,
       tax,
       total: totalPayable,
@@ -73,12 +118,42 @@ function Cart() {
         </div>
       </div>
 
+      {/* First Order Offer Banner - only show if API returns first order coupon */}
+      {(() => {
+        const firstOrderCoupon = eligibleCoupons?.find(c => c.isFirstOrderOnly);
+        console.log('[Cart Banner] firstOrderCoupon from API:', firstOrderCoupon);
+        console.log('[Cart Banner] eligibleCoupons:', eligibleCoupons);
+        if (!firstOrderCoupon || appliedCoupon) return null;
+        return (
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-4 py-3">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🎉</span>
+                <div>
+                  <span className="font-semibold">First Order Offer Available!</span>
+                  <span className="text-sm ml-2 opacity-90">
+                    Use code <span className="font-mono font-bold bg-white/20 px-2 py-0.5 rounded">{firstOrderCoupon.code}</span> for {firstOrderCoupon.discountValue}%
+                    off your first order
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setCouponCode(firstOrderCoupon.code)}
+                className="text-sm bg-white text-blue-600 px-3 py-1 rounded-full font-medium hover:bg-gray-100 transition-colors"
+              >
+                Apply Now
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {cart.length === 0 ? (
         <div className="text-center py-12 px-4">
           <FaShoppingCart className="mx-auto text-5xl text-gray-300 mb-4" />
           <h2 className="text-2xl font-semibold text-gray-700 mb-4">Your cart is empty</h2>
           <p className="text-gray-500 mb-6">Looks like you haven't added anything to your cart yet.</p>
-          <button 
+          <button
             onClick={() => navigate('/')}
             className="bg-black text-white px-6 py-2 rounded-md hover:bg-gray-800 transition-colors cursor-pointer"
           >
@@ -237,19 +312,23 @@ function Cart() {
                       <span>Price ({priceDetails.items} {priceDetails.items === 1 ? 'item' : 'items'})</span>
                       <span>₹{priceDetails.subtotal.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span>You saved</span>
-                      <span className="text-green-600">-₹{priceDetails.savings.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-sm items-center">
-                      <span>Coupon savings</span>
-                      <button
-                        type="button"
-                        className="text-[#2f6f89] font-semibold hover:text-[#24586d] transition-colors"
-                      >
-                        Apply coupon
-                      </button>
-                    </div>
+                    
+                    {/* Product Savings */}
+                    {priceDetails.savings - priceDetails.discount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>You saved</span>
+                        <span className="text-green-600">-₹{(priceDetails.savings - priceDetails.discount).toLocaleString()}</span>
+                      </div>
+                    )}
+                    
+                    {/* Coupon Discount */}
+                    {priceDetails.discount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-green-700 font-medium">Coupon Discount ({appliedCoupon?.code})</span>
+                        <span className="text-green-600 font-medium">-₹{priceDetails.discount.toLocaleString()}</span>
+                      </div>
+                    )}
+                    
                     <div className="flex justify-between text-sm">
                       <span>Shipping</span>
                       <span className={priceDetails.shippingCharge > 0 ? 'text-gray-600' : 'text-green-600'}>
@@ -266,30 +345,77 @@ function Cart() {
                     <span>Total Payable</span>
                     <span>₹{priceDetails.total.toLocaleString()}</span>
                   </div>
-                  
-                  {/* Coupon Section */}
+                                    {/* Coupon Section */}
                   <div className="mb-4">
-                    <div className="flex items-center gap-2 border border-gray-300 rounded-lg p-3">
-                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-                      </svg>
-                      <input
-                        type="text"
-                        placeholder="Enter coupon code"
-                        className="flex-1 outline-none text-sm text-gray-700 placeholder-gray-400"
-                      />
-                      <button className="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer">
-                        Apply
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Get 10% off on your first order! Use code: FIRST10
-                    </p>
+                    {/* Applied Coupon Display */}
+                    {appliedCoupon ? (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FaCheck className="w-4 h-4 text-green-600" />
+                            <div>
+                              <span className="font-mono font-semibold text-green-800 text-sm">{appliedCoupon.code}</span>
+                              <p className="text-xs text-green-600">
+                                You saved ₹{appliedCoupon.discountAmount.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={handleRemoveCoupon}
+                            className="text-gray-500 hover:text-red-500 p-1"
+                            title="Remove coupon"
+                          >
+                            <FaTimes className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 border border-gray-300 rounded-lg p-3">
+                        <FaTicketAlt className="w-5 h-5 text-gray-500" />
+                        <input
+                          type="text"
+                          placeholder="Enter coupon code"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                          onKeyPress={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                          className="flex-1 outline-none text-sm text-gray-700 placeholder-gray-400"
+                          disabled={applyingCoupon}
+                        />
+                        <button
+                          onClick={handleApplyCoupon}
+                          disabled={applyingCoupon || !couponCode.trim()}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {applyingCoupon ? 'Applying...' : 'Apply'}
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Coupon Message */}
+                    {couponMessage && (
+                      <p className={`text-xs mt-2 ${couponMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                        {couponMessage.text}
+                      </p>
+                    )}
+                    
+                    {!appliedCoupon && !couponMessage && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Apply a coupon code to get discounts on your order
+                      </p>
+                    )}
                   </div>
                   
                   {/* Checkout Button */}
                   <button 
-                    onClick={() => navigate('/checkout/address')}
+                    onClick={() => {
+                      // Save coupon info to localStorage for checkout
+                      if (appliedCoupon) {
+                        localStorage.setItem('appliedCoupon', JSON.stringify(appliedCoupon));
+                      } else {
+                        localStorage.removeItem('appliedCoupon');
+                      }
+                      navigate('/checkout/address');
+                    }}
                     className="w-full bg-black text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors cursor-pointer"
                   >
                     Checkout

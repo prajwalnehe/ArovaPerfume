@@ -67,24 +67,24 @@ export default function AddressForm() {
   const [showForm, setShowForm] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('online'); // 'online' or 'cod'
   const [processingOrder, setProcessingOrder] = useState(false);
-  const { cart, cartTotal: total, loadCart } = useCart();
+  const { cart, cartTotal: total, couponDiscount, appliedCoupon, loadCart } = useCart();
 
-  // Calculate price details
+  // Calculate price details - same logic as cart.jsx
   const calculatePriceDetails = () => {
     const subtotal = total || 0;
-    const shippingCharge = subtotal < 5000 ? 99 : 0;
-    const tax = Math.round(subtotal * 0.05); // 5% tax
-    const totalPayable = subtotal + shippingCharge + tax;
-    const savings = Math.round(subtotal * 0.35); // Assuming 35% savings
-    const supercoins = Math.min(30, Math.floor(subtotal / 1000) * 10); // 10 supercoins per 1000 spent, max 30
+    const discount = couponDiscount || 0;
+    const shippingCharge = (subtotal - discount) < 5000 ? 99 : 0;
+    const tax = Math.round((subtotal - discount) * 0.05); // 5% tax on discounted amount
+    const totalPayable = (subtotal - discount) + shippingCharge + tax;
+    const savings = Math.round(subtotal * 0.35) + discount; // Product savings + coupon savings
 
     return {
       subtotal,
+      discount,
       shippingCharge,
       tax,
       total: totalPayable,
       savings,
-      supercoins,
       items: cart?.length || 0,
       cartItems: cart || []
     };
@@ -741,19 +741,20 @@ export default function AddressForm() {
                 <span>Price ({priceDetails.items} {priceDetails.items === 1 ? 'item' : 'items'})</span>
                 <span>₹{priceDetails.subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span>Bag savings</span>
-                <span className="text-green-600">-₹{priceDetails.savings.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-sm items-center">
-                <span>Coupon savings</span>
-                <button
-                  type="button"
-                  className="text-[#2f6f89] font-semibold hover:text-[#24586d] transition-colors"
-                >
-                  Apply coupon
-                </button>
-              </div>
+              {/* Product Savings (35% off) */}
+              {priceDetails.savings - priceDetails.discount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>You saved</span>
+                  <span className="text-green-600">-₹{(priceDetails.savings - priceDetails.discount).toLocaleString()}</span>
+                </div>
+              )}
+              {/* Coupon Discount */}
+              {priceDetails.discount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-green-700 font-medium">Coupon Discount ({appliedCoupon?.code})</span>
+                  <span className="text-green-600 font-medium">-₹{priceDetails.discount.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span>Shipping</span>
                 <span className={priceDetails.shippingCharge > 0 ? 'text-gray-600' : 'text-green-600'}>

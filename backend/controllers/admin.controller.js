@@ -1,4 +1,4 @@
-import { Product } from '../models/product.js';
+import { Product } from '../models/Product.js';
 import Order from '../models/Order.js';
 import { Address } from '../models/Address.js';
 import { Policy } from '../models/Policy.js';
@@ -32,12 +32,28 @@ const normalizeOrder = (orderDoc) => {
   const paymentMethod = o.paymentMethod || (o.razorpayPaymentId ? 'razorpay' : 'cod');
   const transactionId = o.transactionId || o.razorpayPaymentId || o.razorpayOrderId || '';
 
+  // Calculate price breakdown with fallbacks for old orders
+  const itemsPrice = o.itemsPrice || o.items?.reduce((sum, it) => sum + ((it.price || 0) * (it.quantity || 1)), 0) || 0;
+  const taxPrice = o.taxPrice || Math.round(itemsPrice * 0.05) || 0;
+  const shippingPrice = o.shippingPrice || (itemsPrice >= 5000 ? 0 : 99) || 0;
+  const discount = o.discount || o.couponDiscount || 0;
+  const totalPrice = o.totalPrice || (itemsPrice + taxPrice + shippingPrice - discount) || o.amount || 0;
+
   return {
     ...o,
     orderStatus,
     paymentStatus,
     paymentMethod,
     transactionId,
+    // Price breakdown
+    itemsPrice,
+    taxPrice,
+    shippingPrice,
+    discount,
+    totalPrice,
+    couponCode: o.couponCode,
+    isPaid: o.isPaid || paymentStatus === 'paid',
+    paidAt: o.paidAt,
   };
 };
 

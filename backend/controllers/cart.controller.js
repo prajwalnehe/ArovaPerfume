@@ -6,12 +6,29 @@ const isValidObjectId = (value) => mongoose.isValidObjectId(value);
 
 const formatCartResponse = (cart, userId) => ({
   userId: String(userId),
-  items: (cart?.items || []).map((item) => ({
-    productId: String(item?.product?._id || item?.product || ''),
-    product: item?.product?._id ? item.product : undefined,
-    quantity: Number(item?.quantity || 1),
-    size: item?.size || undefined,
-  })),
+  items: (cart?.items || []).map((item) => {
+    const product = item?.product;
+    // Calculate effective price: salePrice if set, else calculate from MRP - discount
+    let price = 0;
+    if (product?.pricing) {
+      const salePrice = Number(product.pricing.salePrice);
+      if (salePrice > 0) {
+        price = salePrice;
+      } else {
+        const mrp = Number(product.pricing.mrp) || 0;
+        const discountPercent = Number(product.pricing.discountPercent) || 0;
+        price = Math.round(mrp - (mrp * discountPercent) / 100) || mrp;
+      }
+    }
+    return {
+      productId: String(product?._id || item?.product || ''),
+      product: product?._id ? product : undefined,
+      quantity: Number(item?.quantity || 1),
+      size: item?.size || undefined,
+      price, // Include calculated price for frontend
+    };
+  }),
+  appliedCoupon: cart?.appliedCoupon || null,
 });
 
 export const getCart = async (req, res) => {
@@ -110,5 +127,45 @@ export const updateCartItemQuantity = async (req, res) => {
     return res.status(200).json(formatCartResponse(cart, req.userId));
   } catch (error) {
     return res.status(500).json({ message: 'Failed to update cart item quantity' });
+  }
+};
+
+// Apply coupon to cart
+export const applyCouponToCart = async (req, res) => {
+  try {
+    const { code, discountType, discountValue, discountAmount, minOrderAmount } = req.body;
+    
+    const cart = await Cart.findOne({ user: req.userId });
+    if (!cart) return res.status(404).json({ message: 'Cart not found' });
+    
+    cart.appliedCoupon = {
+      code,
+      discountType,
+      discountValue,
+      discountAmount,
+      minOrderAmount,
+    };
+    
+    await cart.save();
+    await cart.populate('items.product');
+    return res.status(200).json(formatCartResponse(cart, req.userId));
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to apply coupon to cart' });
+  }
+};
+
+// Remove coupon from cart
+export const removeCouponFromCart = async (req, res) => {
+  try {
+    const cart = await Cart.findOne({ user: req.userId });
+    if (!cart) return res.status(404).json({ message: 'Cart not found' });
+    
+    cart.appliedCoupon = undefined;
+    
+    await cart.save();
+    await cart.populate('items.product');
+    return res.status(200).json(formatCartResponse(cart, req.userId));
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to remove coupon from cart' });
   }
 };

@@ -47,6 +47,12 @@ export const api = {
   addToCart: ({ productId, quantity = 1, size }) => request('/cart/add', { method: 'POST', body: JSON.stringify({ productId, quantity, size }) }),
   removeFromCart: (productId) => request(`/cart/remove/${productId}`, { method: 'DELETE' }),
   updateCart: ({ productId, quantity }) => request('/cart/update', { method: 'PUT', body: JSON.stringify({ productId, quantity }) }),
+  // Coupon endpoints (both now use JWT token for user identification)
+  applyCoupon: (payload) => request('/coupons/apply', { method: 'POST', body: JSON.stringify(payload) }),
+  getCoupons: () => request('/coupons', { method: 'GET' }),
+  // Cart coupon endpoints
+  applyCouponToCart: (payload) => request('/cart/coupon', { method: 'POST', body: JSON.stringify(payload) }),
+  removeCouponFromCart: () => request('/cart/coupon', { method: 'DELETE' }),
   // Admin endpoints
   admin: {
     stats: () => request('/admin/stats', { method: 'GET' }),

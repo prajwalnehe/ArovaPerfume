@@ -7,10 +7,43 @@ const isMongoObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''));
 
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
+  const [appliedCoupon, setAppliedCoupon] = useState(() => {
+    // Load coupon from localStorage on init
+    try {
+      const saved = localStorage.getItem('appliedCoupon');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [couponDiscount, setCouponDiscount] = useState(() => {
+    // Calculate initial discount from loaded coupon
+    try {
+      const saved = localStorage.getItem('appliedCoupon');
+      if (saved) {
+        const coupon = JSON.parse(saved);
+        return coupon?.discountAmount || 0;
+      }
+      return 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [eligibleCoupons, setEligibleCoupons] = useState([]);
   const navigate = useNavigate();
   const location = useLocation();
 
   const hasToken = () => Boolean(localStorage.getItem('auth_token'));
+  const getUserId = () => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user._id || user.id;
+      }
+    } catch { }
+    return null;
+  };
   const isUnauthorizedError = (error) => /no token|invalid token|unauthorized|401/i.test(String(error?.message || ''));
 
   const mapServerCartToUI = useCallback((data) => {
@@ -206,11 +239,15 @@ export const CartProvider = ({ children }) => {
   const clearCart = useCallback(async () => {
     if (!hasToken()) {
       setCart([]);
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
       return;
     }
 
     const current = [...cart];
     setCart([]);
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
     try {
       for (const item of current) {
         await api.removeFromCart(item.id);
@@ -222,20 +259,118 @@ export const CartProvider = ({ children }) => {
     }
   }, [cart, loadCart]);
 
+  // Derived cart values
   const cartTotal = cart.reduce((total, item) => {
-    const price = item.pricing?.salePrice || item.salePrice || item.price || 0;
+    // Use backend calculated price (from formatCartResponse)
+    const price = item.price || item.pricing?.salePrice || item.salePrice || 0;
     return total + (price * (item.quantity || 1));
   }, 0);
   const cartCount = cart.reduce((total, item) => total + (item.quantity || 1), 0);
 
+  // Fetch eligible coupons - API uses JWT token to identify user
+  const fetchEligibleCoupons = useCallback(async () => {
+    if (!hasToken()) return;
+    console.log('[Frontend] Fetching coupons (using JWT token)');
+    try {
+      const result = await api.getCoupons();
+      console.log('[Frontend] Coupons from API:', result);
+      if (result.success) {
+        setEligibleCoupons(result.data || []);
+        const hasFirstOrderCoupon = result.data?.some(c => c.isFirstOrderOnly);
+        console.log('[Frontend] Has first order coupon in response:', hasFirstOrderCoupon);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch eligible coupons:', error);
+    }
+  }, []);
+
+  // Coupon functions
+  const applyCouponCode = useCallback(async (code) => {
+    if (!code || !cartTotal) {
+      return { success: false, message: 'Invalid coupon or empty cart' };
+    }
+
+    try {
+      // Backend uses JWT token to identify user, no need to send userId
+      const result = await api.applyCoupon({ code, orderAmount: cartTotal });
+
+      if (result.success) {
+        const couponData = {
+          code: result.data.couponCode,
+          discountType: result.data.discountType,
+          discountValue: result.data.discountValue,
+          discountAmount: result.data.discountAmount,
+          finalAmount: result.data.finalAmount,
+          originalAmount: result.data.originalAmount
+        };
+        
+        // Save coupon to backend cart (important for order creation)
+        try {
+          await api.applyCouponToCart({
+            code: couponData.code,
+            discountType: couponData.discountType,
+            discountValue: couponData.discountValue,
+            discountAmount: couponData.discountAmount,
+            minOrderAmount: result.data.minOrderAmount || 0
+          });
+          console.log('[CartContext] Coupon saved to cart backend');
+        } catch (cartError) {
+          console.error('[CartContext] Failed to save coupon to cart:', cartError);
+          // Continue even if cart save fails - at least frontend has it
+        }
+        
+        setAppliedCoupon(couponData);
+        setCouponDiscount(result.data.discountAmount);
+        // Save to localStorage
+        localStorage.setItem('appliedCoupon', JSON.stringify(couponData));
+        return {
+          success: true,
+          message: `Coupon applied! You saved ₹${result.data.discountAmount.toLocaleString()}`,
+          data: result.data
+        };
+      }
+
+      return { success: false, message: result.message || 'Failed to apply coupon' };
+    } catch (error) {
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
+      localStorage.removeItem('appliedCoupon');
+      return {
+        success: false,
+        message: error.message || 'Failed to apply coupon'
+      };
+    }
+  }, [cartTotal]);
+
+  const removeCoupon = useCallback(async () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    localStorage.removeItem('appliedCoupon');
+    
+    // Remove coupon from backend cart
+    try {
+      await api.removeCouponFromCart();
+      console.log('[CartContext] Coupon removed from cart backend');
+    } catch (cartError) {
+      console.error('[CartContext] Failed to remove coupon from cart:', cartError);
+    }
+  }, []);
+
+  // Final amount after coupon discount
+  const finalTotal = Math.max(0, cartTotal - couponDiscount);
+
   useEffect(() => {
     loadCart();
+    fetchEligibleCoupons();
     const onStorage = (e) => {
-      if (!e || e.key === 'auth_token') loadCart();
+      if (!e || e.key === 'auth_token') {
+        loadCart();
+        fetchEligibleCoupons();
+      }
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-  }, [loadCart]);
+  }, [loadCart, fetchEligibleCoupons]);
 
   // Also reload on route changes to reflect auth changes in the same tab.
   useEffect(() => {
@@ -259,6 +394,13 @@ export const CartProvider = ({ children }) => {
       cartTotal,
       cartCount,
       loadCart,
+      appliedCoupon,
+      couponDiscount,
+      finalTotal,
+      applyCouponCode,
+      removeCoupon,
+      eligibleCoupons,
+      fetchEligibleCoupons,
     }}>
       {children}
     </CartContext.Provider>

@@ -1,5 +1,6 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import Cart from '../models/Cart.js';
 import Order from '../models/Order.js';
 import { Address } from '../models/Address.js';
@@ -65,7 +66,8 @@ export const verifyPayment = async (req, res) => {
       return res.status(400).json({ error: 'Cart is empty' });
     }
 
-    const items = cart.items.map(i => {
+    // Prepare order items with name and image
+    const orderItems = cart.items.map(i => {
       const p = i.product;
       // Get price from product.pricing.salePrice (correct field from Product model)
       let base = Number(p?.pricing?.salePrice) || 0;
@@ -75,9 +77,34 @@ export const verifyPayment = async (req, res) => {
         const discountPercent = Number(p.pricing.discountPercent) || 0;
         base = Math.round(mrp - (mrp * discountPercent) / 100) || mrp;
       }
-      return { product: p._id, quantity: i.quantity, price: base, size: i.size || undefined };
+      return { 
+        product: p._id, 
+        name: p.title || p.name || 'Product',
+        image: p.images?.[0] || p.images?.image1 || p.image || '',
+        quantity: i.quantity, 
+        price: base, 
+        size: i.size || undefined 
+      };
     });
-    const amount = items.reduce((sum, it) => sum + (it.price * it.quantity), 0);
+    
+    // Calculate price breakdown
+    const itemsPrice = orderItems.reduce((sum, it) => sum + (it.price * it.quantity), 0);
+    const taxPrice = Math.round(itemsPrice * 0.05); // 5% tax
+    
+    // Shipping price logic: Free if order > 5000, else ₹99
+    const shippingPrice = itemsPrice >= 5000 ? 0 : 99;
+    
+    // Apply coupon discount if available
+    let discount = 0;
+    let couponCode = null;
+    if (cart.appliedCoupon && cart.appliedCoupon.discountAmount > 0) {
+      discount = cart.appliedCoupon.discountAmount;
+      couponCode = cart.appliedCoupon.code;
+      console.log('[Razorpay Order] Applying coupon:', couponCode, 'discount:', discount);
+    }
+    
+    // Calculate total price
+    const totalPrice = itemsPrice + taxPrice + shippingPrice - discount;
 
     // Load user's current address to snapshot into the order
     let shippingAddress = null;
@@ -89,12 +116,25 @@ export const verifyPayment = async (req, res) => {
       }
     } catch {}
 
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    console.log('[Razorpay Order] Creating order with userId:', userId);
+    console.log('[Razorpay Order] userObjectId:', userObjectId);
+
     const order = await Order.create({
-      user: userId,
-      items,
-      amount,
+      user: userObjectId,
+      items: orderItems,
+      itemsPrice,
+      taxPrice,
+      shippingPrice,
+      discount,
+      totalPrice,
+      couponCode,
+      couponDiscount: discount,
+      isPaid: true,
+      paidAt: new Date(),
       currency: 'INR',
       status: 'paid',
+      paymentStatus: 'paid',
       paymentMethod: 'razorpay',
       razorpayOrderId: razorpay_order_id,
       razorpayPaymentId: razorpay_payment_id,
@@ -103,8 +143,11 @@ export const verifyPayment = async (req, res) => {
     });
 
     cart.items = [];
+    cart.appliedCoupon = undefined; // Clear applied coupon
     await cart.save();
 
+    console.log('[Razorpay Order] Created successfully:', order._id);
+    console.log('[Razorpay Order] Saved user field:', order.user);
     return res.json({ success: true, order });
   } catch (err) {
     console.error('Razorpay verifyPayment error:', err?.message || err);
@@ -126,7 +169,8 @@ export const createCODOrder = async (req, res) => {
       return res.status(400).json({ error: 'Cart is empty' });
     }
 
-    const items = cart.items.map(i => {
+    // Prepare order items with name and image
+    const orderItems = cart.items.map(i => {
       const p = i.product;
       // Get price from product.pricing.salePrice (correct field from Product model)
       let base = Number(p?.pricing?.salePrice) || 0;
@@ -136,9 +180,34 @@ export const createCODOrder = async (req, res) => {
         const discountPercent = Number(p.pricing.discountPercent) || 0;
         base = Math.round(mrp - (mrp * discountPercent) / 100) || mrp;
       }
-      return { product: p._id, quantity: i.quantity, price: base, size: i.size || undefined };
+      return { 
+        product: p._id, 
+        name: p.title || p.name || 'Product',
+        image: p.images?.[0] || p.images?.image1 || p.image || '',
+        quantity: i.quantity, 
+        price: base, 
+        size: i.size || undefined 
+      };
     });
-    const amount = items.reduce((sum, it) => sum + (it.price * it.quantity), 0);
+    
+    // Calculate price breakdown
+    const itemsPrice = orderItems.reduce((sum, it) => sum + (it.price * it.quantity), 0);
+    const taxPrice = Math.round(itemsPrice * 0.05); // 5% tax
+    
+    // Shipping price logic: Free if order > 5000, else ₹99
+    const shippingPrice = itemsPrice >= 5000 ? 0 : 99;
+    
+    // Apply coupon discount if available
+    let discount = 0;
+    let couponCode = null;
+    if (cart.appliedCoupon && cart.appliedCoupon.discountAmount > 0) {
+      discount = cart.appliedCoupon.discountAmount;
+      couponCode = cart.appliedCoupon.code;
+      console.log('[COD Order] Applying coupon:', couponCode, 'discount:', discount);
+    }
+    
+    // Calculate total price
+    const totalPrice = itemsPrice + taxPrice + shippingPrice - discount;
 
     // Load user's current address to snapshot into the order
     let shippingAddress = null;
@@ -158,20 +227,39 @@ export const createCODOrder = async (req, res) => {
       return res.status(400).json({ error: 'Shipping address is required. Please save your delivery address first.' });
     }
 
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    console.log('[COD Order] Creating order with userId:', userId);
+    console.log('[COD Order] userObjectId:', userObjectId);
+    console.log('[COD Order] userObjectId type:', typeof userObjectId);
+    console.log('[COD Order] userObjectId.toString():', userObjectId.toString());
+
     const order = await Order.create({
-      user: userId,
-      items,
-      amount,
+      user: userObjectId,
+      items: orderItems,
+      itemsPrice,
+      taxPrice,
+      shippingPrice,
+      discount,
+      totalPrice,
+      couponCode,
+      couponDiscount: discount,
+      isPaid: false,
       currency: 'INR',
       status: 'pending',
+      paymentStatus: 'pending',
+      orderStatus: 'pending',
       paymentMethod: 'cod',
       shippingAddress,
     });
 
     cart.items = [];
+    cart.appliedCoupon = undefined; // Clear applied coupon
     await cart.save();
 
-    console.log('COD Order created successfully:', order._id);
+    console.log('[COD Order] Created successfully:', order._id);
+    console.log('[COD Order] Saved user field:', order.user);
+    console.log('[COD Order] Saved user field type:', typeof order.user);
+    console.log('[COD Order] Saved user field toString:', order.user.toString());
     return res.json({ success: true, order });
   } catch (err) {
     console.error('Create COD order error:', err?.message || err);

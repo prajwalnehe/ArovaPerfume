@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 
 const navItems = [
   { label: 'Dashboard', to: '/dashboard' },
@@ -6,14 +6,23 @@ const navItems = [
   { label: 'Categories', to: '/categories' },
   { label: 'Orders', to: '/orders' },
   { label: 'Users', to: '/users' },
+  { label: 'Coupons', to: '/coupons' },
 ]
 
 const Sidebar = () => {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken')
     navigate('/login')
+  }
+
+  const isActive = (path) => {
+    if (path === '/orders') {
+      return location.pathname.startsWith('/orders')
+    }
+    return location.pathname === path || location.pathname.startsWith(`${path}/`)
   }
 
   return (
@@ -27,9 +36,9 @@ const Sidebar = () => {
           <NavLink
             key={item.to}
             to={item.to}
-            className={({ isActive }) =>
+            className={() =>
               `block px-3 py-2 rounded-lg text-sm transition ${
-                isActive ? 'bg-white text-slate-900 font-semibold' : 'text-slate-200 hover:bg-slate-800'
+                isActive(item.to) ? 'bg-white text-slate-900 font-semibold' : 'text-slate-200 hover:bg-slate-800'
               }`
             }
           >
