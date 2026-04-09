@@ -10,8 +10,8 @@ const reviewsSchema = new mongoose.Schema(
 
 const pricingSchema = new mongoose.Schema(
   {
-    salePrice: { type: Number, required: true, min: 0 },
-    mrp: { type: Number, required: true, min: 0 },
+    salePrice: { type: Number, default: 0, min: 0 },
+    mrp: { type: Number, default: 0, min: 0 },
     discountPercent: { type: Number, default: 0, min: 0, max: 100 },
     taxIncluded: { type: Boolean, default: true },
   },
@@ -20,8 +20,8 @@ const pricingSchema = new mongoose.Schema(
 
 const stockSchema = new mongoose.Schema(
   {
-    quantity: { type: Number, default: 0, min: 0 },
-    sku: { type: String, trim: true, default: '', unique: true, sparse: true },
+    quantity: { type: Number, default: 0 },
+    sku: { type: String, trim: true, default: '' },
   },
   { _id: false }
 );
@@ -75,15 +75,14 @@ const returnsSchema = new mongoose.Schema(
 
 const productSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true, trim: true, minlength: 2, maxlength: 200 },
+    title: { type: String, trim: true, default: 'Untitled Product', maxlength: 200 },
     brand: { type: String, trim: true, default: '' },
-    gender: { type: String, enum: ['Men', 'Women', 'Unisex'], default: 'Unisex', index: true },
-    category: { type: String, required: true, trim: true, index: true },
+    category: { type: String, trim: true, default: 'Uncategorized', index: true },
     subcategory: { type: String, trim: true, default: '' },
     type: { type: String, trim: true, default: '' },
 
     reviews: { type: reviewsSchema, default: () => ({}) },
-    pricing: { type: pricingSchema, required: true },
+    pricing: { type: pricingSchema, default: () => ({ salePrice: 0, mrp: 0, discountPercent: 0 }) },
     stock: { type: stockSchema, default: () => ({}) },
     notes: { type: notesSchema, default: () => ({}) },
 
@@ -99,10 +98,12 @@ const productSchema = new mongoose.Schema(
     images: {
       type: [String],
       default: [],
-      validate: {
-        validator: (arr) => Array.isArray(arr) && arr.every((url) => typeof url === 'string' && url.trim().length > 0),
-        message: 'All images must be valid non-empty strings',
-      },
+    },
+
+    tags: {
+      type: [String],
+      default: [],
+      enum: ['Best Seller', 'Only Few Left Hurry', 'Highly Recommended'],
     },
 
     pincodeServiceable: { type: Boolean, default: true },
@@ -111,9 +112,46 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.pre('validate', function autoComputeDiscount(next) {
-  if (this.pricing?.mrp > 0 && this.pricing?.salePrice >= 0) {
+  // Ensure pricing object exists
+  if (!this.pricing) {
+    this.pricing = { salePrice: 0, mrp: 0, discountPercent: 0 };
+  }
+  if (this.pricing.mrp > 0 && this.pricing.salePrice >= 0) {
     const computed = ((this.pricing.mrp - this.pricing.salePrice) / this.pricing.mrp) * 100;
     this.pricing.discountPercent = Number(Math.max(0, Math.min(100, computed)).toFixed(2));
+  } else {
+    this.pricing.discountPercent = 0;
+  }
+  next();
+});
+
+productSchema.pre('save', function autoComputeDiscountOnSave(next) {
+  if (!this.pricing) {
+    this.pricing = { salePrice: 0, mrp: 0, discountPercent: 0 };
+  }
+  if (this.pricing.mrp > 0 && this.pricing.salePrice >= 0) {
+    const computed = ((this.pricing.mrp - this.pricing.salePrice) / this.pricing.mrp) * 100;
+    this.pricing.discountPercent = Number(Math.max(0, Math.min(100, computed)).toFixed(2));
+  } else {
+    this.pricing.discountPercent = 0;
+  }
+  next();
+});
+
+productSchema.pre('findOneAndUpdate', function autoComputeDiscountOnUpdate(next) {
+  const update = this.getUpdate();
+  if (update?.pricing?.mrp > 0 && update?.pricing?.salePrice >= 0) {
+    const computed = ((update.pricing.mrp - update.pricing.salePrice) / update.pricing.mrp) * 100;
+    update.pricing.discountPercent = Number(Math.max(0, Math.min(100, computed)).toFixed(2));
+  }
+  next();
+});
+
+productSchema.pre('updateOne', function autoComputeDiscountOnUpdateOne(next) {
+  const update = this.getUpdate();
+  if (update?.pricing?.mrp > 0 && update?.pricing?.salePrice >= 0) {
+    const computed = ((update.pricing.mrp - update.pricing.salePrice) / update.pricing.mrp) * 100;
+    update.pricing.discountPercent = Number(Math.max(0, Math.min(100, computed)).toFixed(2));
   }
   next();
 });

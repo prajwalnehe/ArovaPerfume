@@ -75,6 +75,25 @@ const PORT = process.env.PORT || 5000;
 // Connect DB
 await connectDB(process.env.MONGODB_URI || '');
 
+// Drop problematic SKU index if it exists (wait for connection)
+await new Promise(resolve => setTimeout(resolve, 1000));
+try {
+  const mongoose = await import('mongoose');
+  const db = mongoose.default.connection.db;
+  const collection = db.collection('products');
+  const indexes = await collection.indexes();
+  const skuIndex = indexes.find(i => i.name === 'stock.sku_1');
+  if (skuIndex) {
+    console.log('[Index Drop] Found stock.sku_1 index, dropping...');
+    await collection.dropIndex('stock.sku_1');
+    console.log('[Index Drop] Successfully dropped stock.sku_1 index');
+  } else {
+    console.log('[Index Drop] No stock.sku_1 index found');
+  }
+} catch (err) {
+  console.log('[Index Drop] Note:', err.message);
+}
+
 // Start server
 server.listen(PORT, () => {
   console.log('Server is running at', PORT);

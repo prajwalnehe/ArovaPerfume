@@ -61,47 +61,81 @@ export async function createProduct(req, res) {
   try {
     const {
       title,
-      mrp,
-      discountPercent = 0,
-      description = '',
+      brand = '',
       category,
-      product_info = {},
-      images = {},
-      categoryId,
+      subcategory = '',
+      pricing = {},
+      stock = {},
+      notes = {},
+      description = '',
+      images = [],
+      services = {},
+      shippingAndReturns = {},
+      tags = [],
     } = req.body || {};
 
-    if (!title || typeof mrp === 'undefined' || !category) {
-      return res.status(400).json({ message: 'title, mrp and category are required' });
-    }
+    // Support both old and new format
+    const mrp = pricing.mrp || req.body.mrp || 0;
+    const salePrice = pricing.salePrice || req.body.salePrice || mrp;
+    const imageArray = Array.isArray(images) ? images : [images.image1, images.image2, images.image3].filter(Boolean);
 
-    const imageGallery = [images.image1, images.image2, images.image3].filter(Boolean);
-    const salePrice = Number(mrp) - (Number(mrp) * (Number(discountPercent) || 0)) / 100;
+    if (!title) {
+      return res.status(400).json({ message: 'title is required' });
+    }
 
     const payload = {
       title,
-      brand: product_info.brand || '',
-      gender: req.body?.gender || 'Unisex',
-      salePrice: Math.max(0, Number(salePrice.toFixed(2))),
-      mrp: Number(mrp),
-      discountPercent: Number(discountPercent) || 0,
+      brand,
+      category: category || 'Uncategorized',
+      subcategory,
+      pricing: {
+        salePrice: Number(salePrice) || 0,
+        mrp: Number(mrp) || 0,
+        discountPercent: 0, // Will be auto-computed by pre-save hook
+        taxIncluded: true,
+      },
+      stock: {
+        quantity: Math.max(0, Number(stock.quantity) || 0),
+        sku: stock.sku || '',
+      },
+      notes: {
+        topNotes: notes.topNotes || [],
+        middleNotes: notes.middleNotes || [],
+        baseNotes: notes.baseNotes || [],
+      },
       description,
-      category,
-      type: req.body?.type || '',
-      images: imageGallery,
+      images: imageArray,
+      services: {
+        secureTransaction: services.secureTransaction ?? true,
+        payOnDelivery: services.payOnDelivery ?? false,
+        easyTracking: services.easyTracking ?? true,
+        freeDelivery: services.freeDelivery ?? false,
+      },
+      shippingAndReturns: {
+        shipping: {
+          isFreeShipping: shippingAndReturns.shipping?.isFreeShipping ?? true,
+          shippingType: shippingAndReturns.shipping?.shippingType || 'Standard',
+          estimatedDelivery: shippingAndReturns.shipping?.estimatedDelivery || '',
+          notes: shippingAndReturns.shipping?.notes || [],
+          prepaidBenefits: shippingAndReturns.shipping?.prepaidBenefits || '',
+        },
+        returns: {
+          isReturnable: shippingAndReturns.returns?.isReturnable ?? true,
+          policy: shippingAndReturns.returns?.policy || '',
+        },
+      },
+      tags: Array.isArray(tags) ? tags.filter(t => ['Best Seller', 'Only Few Left Hurry', 'Highly Recommended'].includes(t)) : [],
+      pincodeServiceable: true,
     };
-
-    if (categoryId) payload.categoryId = categoryId;
 
     const product = await Product.create(payload);
     const p = product.toObject();
     return res.status(201).json({
-      ...p,
-      imageGallery: p.images || [],
-      images: { image1: p.images?.[0] || '', image2: p.images?.[1] || '', image3: p.images?.[2] || '' },
-      product_info: { brand: p.brand || '' },
-      price: p.salePrice,
+      success: true,
+      data: p,
     });
   } catch (err) {
+    console.error('[Admin Create Product Error]', err);
     return res.status(500).json({ message: 'Failed to create product', error: err.message });
   }
 }
@@ -192,8 +226,32 @@ export async function updateOrderStatus(req, res) {
 
 export async function adminListProducts(req, res) {
   try {
-    const products = await Product.find({}).sort({ createdAt: -1 });
-    return res.json(products);
+    const products = await Product.find({}).sort({ category: 1, createdAt: -1 }).lean();
+    // Calculate discountPercent for each product if not present
+    const enrichedProducts = products.map(p => {
+      const pricing = p.pricing || {};
+      const mrp = pricing.mrp || p.mrp || 0;
+      const salePrice = pricing.salePrice || p.salePrice || p.price || mrp;
+      let discountPercent = pricing.discountPercent || p.discountPercent || 0;
+      // Auto-calculate if not set or invalid
+      if ((!discountPercent || discountPercent === 0) && mrp > 0 && salePrice < mrp) {
+        discountPercent = Math.round(((mrp - salePrice) / mrp) * 100);
+      }
+      return {
+        ...p,
+        pricing: {
+          ...pricing,
+          mrp,
+          salePrice,
+          discountPercent,
+        },
+        mrp,
+        salePrice,
+        price: salePrice,
+        discountPercent,
+      };
+    });
+    return res.json(enrichedProducts);
   } catch (err) {
     return res.status(500).json({ message: 'Failed to list products', error: err.message });
   }
@@ -310,18 +368,84 @@ export async function adminListAddresses(req, res) {
 export async function updateProduct(req, res) {
   try {
     const { id } = req.params;
-    const { mrp, discountPercent } = req.body;
-
-    if (typeof mrp === 'undefined' && typeof discountPercent === 'undefined') {
-      return res.status(400).json({ message: 'At least one field (mrp or discountPercent) is required' });
-    }
+    const {
+      title,
+      brand,
+      category,
+      subcategory,
+      pricing = {},
+      stock = {},
+      notes = {},
+      description,
+      images,
+      services = {},
+      shippingAndReturns = {},
+      tags,
+    } = req.body;
 
     const updates = {};
-    if (typeof mrp !== 'undefined') {
-      updates.mrp = Number(mrp);
+
+    // Basic fields
+    if (title !== undefined) updates.title = title;
+    if (brand !== undefined) updates.brand = brand;
+    if (category !== undefined) updates.category = category;
+    if (subcategory !== undefined) updates.subcategory = subcategory;
+    if (description !== undefined) updates.description = description;
+
+    // Pricing - support both old and new format
+    const mrp = pricing.mrp || req.body.mrp;
+    const salePrice = pricing.salePrice || req.body.salePrice;
+    if (mrp !== undefined || salePrice !== undefined) {
+      updates.pricing = updates.pricing || {};
+      if (mrp !== undefined) updates.pricing.mrp = Number(mrp);
+      if (salePrice !== undefined) updates.pricing.salePrice = Number(salePrice);
+      updates.pricing.taxIncluded = true;
     }
-    if (typeof discountPercent !== 'undefined') {
-      updates.discountPercent = Number(discountPercent) || 0;
+
+    // Stock
+    if (stock.quantity !== undefined || stock.sku !== undefined) {
+      updates.stock = updates.stock || {};
+      if (stock.quantity !== undefined) updates.stock.quantity = Math.max(0, Number(stock.quantity) || 0);
+      if (stock.sku !== undefined) updates.stock.sku = stock.sku;
+    }
+
+    // Notes
+    if (notes.topNotes !== undefined || notes.middleNotes !== undefined || notes.baseNotes !== undefined) {
+      updates.notes = updates.notes || {};
+      if (notes.topNotes !== undefined) updates.notes.topNotes = notes.topNotes;
+      if (notes.middleNotes !== undefined) updates.notes.middleNotes = notes.middleNotes;
+      if (notes.baseNotes !== undefined) updates.notes.baseNotes = notes.baseNotes;
+    }
+
+    // Images - support both array and object format
+    if (images !== undefined) {
+      if (Array.isArray(images)) {
+        updates.images = images.filter(img => img && img.trim() !== '');
+      } else {
+        updates.images = [images.image1, images.image2, images.image3, images.image4].filter(Boolean);
+      }
+    }
+
+    // Services
+    if (services.payOnDelivery !== undefined || services.freeDelivery !== undefined) {
+      updates.services = updates.services || {};
+      if (services.payOnDelivery !== undefined) updates.services.payOnDelivery = services.payOnDelivery;
+      if (services.freeDelivery !== undefined) updates.services.freeDelivery = services.freeDelivery;
+    }
+
+    // Returns
+    if (shippingAndReturns.returns?.isReturnable !== undefined) {
+      updates.shippingAndReturns = updates.shippingAndReturns || {};
+      updates.shippingAndReturns.returns = { isReturnable: shippingAndReturns.returns.isReturnable };
+    }
+
+    // Tags
+    if (tags !== undefined && Array.isArray(tags)) {
+      updates.tags = tags.filter(t => ['Best Seller', 'Only Few Left Hurry', 'Highly Recommended'].includes(t));
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'No valid fields to update' });
     }
 
     const product = await Product.findByIdAndUpdate(
@@ -334,8 +458,9 @@ export async function updateProduct(req, res) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    return res.json(product);
+    return res.json({ success: true, data: product });
   } catch (err) {
+    console.error('[Admin Update Product Error]', err);
     return res.status(500).json({ message: 'Failed to update product', error: err.message });
   }
 }

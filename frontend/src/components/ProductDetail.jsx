@@ -74,7 +74,6 @@ const ProductDetail = () => {
     { label: "Brand", value: product?.product_info?.brand || product?.brand },
     { label: "Category", value: product?.category },
     { label: "Type", value: product?.type || product?.subcategory },
-    { label: "Gender", value: product?.gender },
     { label: "Stock", value: product?.quantity != null ? `${product.quantity} available` : null },
     { label: "Secure Transaction", value: product?.secureTransaction ? "Yes" : "No" },
     { label: "Easy Tracking", value: product?.easyTracking ? "Yes" : "No" },
@@ -182,14 +181,11 @@ const ProductDetail = () => {
 
           {/* Right details panel */}
           <div className="bg-white p-4 sm:p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-semibold uppercase tracking-wide text-gray-900 leading-tight">
-                  {product.title}
-                </h1>
-                <p className="text-xs tracking-[0.2em] mt-1 text-gray-700">EAU DE PARFUM</p>
-              </div>
-              <span className="text-[11px] bg-purple-100 text-purple-800 px-2 py-1 font-semibold uppercase">{product.gender || "UNISEX"}</span>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-semibold uppercase tracking-wide text-gray-900 leading-tight">
+                {product.title}
+              </h1>
+              <p className="text-xs tracking-[0.2em] mt-1 text-gray-700">EAU DE PARFUM</p>
             </div>
 
             <div className="flex items-center gap-2 mt-3">

@@ -9,14 +9,11 @@ const AddProduct = () => {
   const [form, setForm] = useState({
     title: '',
     brand: '',
-    gender: 'Unisex',
     category: '',
     subcategory: '',
-    type: '',
     salePrice: '',
     mrp: '',
     stock: '',
-    sku: '',
     description: '',
     topNotes: '',
     middleNotes: '',
@@ -25,16 +22,10 @@ const AddProduct = () => {
     image2: '',
     image3: '',
     image4: '',
-    pincodeServiceable: true,
-    secureTransaction: true,
     payOnDelivery: false,
-    easyTracking: true,
     freeDelivery: false,
-    isFreeShipping: true,
-    shippingType: 'Standard',
-    estimatedDelivery: '',
     isReturnable: true,
-    returnPolicy: '',
+    tags: [],
   })
 
   const onChange = (e) => {
@@ -49,17 +40,14 @@ const AddProduct = () => {
       const payload = {
         title: form.title,
         brand: form.brand,
-        gender: form.gender,
         category: form.category,
         subcategory: form.subcategory,
-        type: form.type,
         pricing: {
           salePrice: Number(form.salePrice),
           mrp: Number(form.mrp),
         },
         stock: {
           quantity: Number(form.stock) || 0,
-          sku: form.sku,
         },
         notes: {
           topNotes: form.topNotes ? form.topNotes.split(',').map(n => n.trim()) : [],
@@ -73,24 +61,16 @@ const AddProduct = () => {
           form.image3,
           form.image4
         ].filter(img => img && img.trim() !== ''),
-        pincodeServiceable: form.pincodeServiceable,
         services: {
-          secureTransaction: form.secureTransaction,
           payOnDelivery: form.payOnDelivery,
-          easyTracking: form.easyTracking,
           freeDelivery: form.freeDelivery,
         },
         shippingAndReturns: {
-          shipping: {
-            isFreeShipping: form.isFreeShipping,
-            shippingType: form.shippingType,
-            estimatedDelivery: form.estimatedDelivery,
-          },
           returns: {
             isReturnable: form.isReturnable,
-            policy: form.returnPolicy,
           },
         },
+        tags: form.tags,
       }
       await productsAPI.add(payload)
       setMessage('Product added successfully.')
@@ -113,17 +93,11 @@ const AddProduct = () => {
         {/* Basic Information */}
         <div>
           <h4 className="font-medium text-slate-900 mb-3">Basic Information</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <input className="border rounded-lg px-3 py-2" name="title" placeholder="Product Title *" required onChange={onChange} value={form.title} />
-            <input className="border rounded-lg px-3 py-2" name="brand" placeholder="Brand" onChange={onChange} value={form.brand} />
-            <select className="border rounded-lg px-3 py-2" name="gender" onChange={onChange} value={form.gender}>
-              <option value="Men">Men</option>
-              <option value="Women">Women</option>
-              <option value="Unisex">Unisex</option>
-            </select>
-            <input className="border rounded-lg px-3 py-2" name="category" placeholder="Category *" required onChange={onChange} value={form.category} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input className="border rounded-lg px-3 py-2" name="title" placeholder="Product Title" onChange={onChange} value={form.title} />
+            <input className="border rounded-lg px-3 py-2" name="brand" placeholder="Brand Name" onChange={onChange} value={form.brand} />
+            <input className="border rounded-lg px-3 py-2" name="category" placeholder="Category" onChange={onChange} value={form.category} />
             <input className="border rounded-lg px-3 py-2" name="subcategory" placeholder="Subcategory" onChange={onChange} value={form.subcategory} />
-            <input className="border rounded-lg px-3 py-2" name="type" placeholder="Type" onChange={onChange} value={form.type} />
           </div>
         </div>
 
@@ -131,23 +105,20 @@ const AddProduct = () => {
         <div>
           <h4 className="font-medium text-slate-900 mb-3">Pricing</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input className="border rounded-lg px-3 py-2" name="salePrice" placeholder="Sale Price *" type="number" required onChange={onChange} value={form.salePrice} />
-            <input className="border rounded-lg px-3 py-2" name="mrp" placeholder="MRP *" type="number" required onChange={onChange} value={form.mrp} />
+            <input className="border rounded-lg px-3 py-2" name="mrp" placeholder="MRP" type="number" onChange={onChange} value={form.mrp} />
+            <input className="border rounded-lg px-3 py-2" name="salePrice" placeholder="Sale Price" type="number" onChange={onChange} value={form.salePrice} />
           </div>
         </div>
 
         {/* Stock */}
         <div>
           <h4 className="font-medium text-slate-900 mb-3">Stock</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input className="border rounded-lg px-3 py-2" name="stock" placeholder="Stock Quantity" type="number" onChange={onChange} value={form.stock} />
-            <input className="border rounded-lg px-3 py-2" name="sku" placeholder="SKU" onChange={onChange} value={form.sku} />
-          </div>
+          <input className="border rounded-lg px-3 py-2 w-full md:w-1/2" name="stock" placeholder="Stock Quantity" type="number" onChange={onChange} value={form.stock} />
         </div>
 
         {/* Notes (for perfumes) */}
         <div>
-          <h4 className="font-medium text-slate-900 mb-3">Notes (Perfume)</h4>
+          <h4 className="font-medium text-slate-900 mb-3">Notes</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <input className="border rounded-lg px-3 py-2" name="topNotes" placeholder="Top Notes (comma separated)" onChange={onChange} value={form.topNotes} />
             <input className="border rounded-lg px-3 py-2" name="middleNotes" placeholder="Middle Notes (comma separated)" onChange={onChange} value={form.middleNotes} />
@@ -163,30 +134,71 @@ const AddProduct = () => {
 
         {/* Images */}
         <div>
-          <h4 className="font-medium text-slate-900 mb-3">Images</h4>
+          <h4 className="font-medium text-slate-900 mb-3">Image URLs</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input className="border rounded-lg px-3 py-2" name="image1" placeholder="Primary Image URL *" required onChange={onChange} value={form.image1} />
+            <input className="border rounded-lg px-3 py-2" name="image1" placeholder="Primary Image URL" onChange={onChange} value={form.image1} />
             <input className="border rounded-lg px-3 py-2" name="image2" placeholder="Image 2 URL" onChange={onChange} value={form.image2} />
             <input className="border rounded-lg px-3 py-2" name="image3" placeholder="Image 3 URL" onChange={onChange} value={form.image3} />
             <input className="border rounded-lg px-3 py-2" name="image4" placeholder="Image 4 URL" onChange={onChange} value={form.image4} />
           </div>
         </div>
 
+        {/* Tags */}
+        <div>
+          <h4 className="font-medium text-slate-900 mb-3">Product Tags</h4>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={form.tags.includes('Best Seller')}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setForm(prev => ({...prev, tags: [...prev.tags, 'Best Seller']}));
+                  } else {
+                    setForm(prev => ({...prev, tags: prev.tags.filter(t => t !== 'Best Seller')}));
+                  }
+                }}
+              />
+              <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-medium">Best Seller</span>
+            </label>
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={form.tags.includes('Only Few Left Hurry')}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setForm(prev => ({...prev, tags: [...prev.tags, 'Only Few Left Hurry']}));
+                  } else {
+                    setForm(prev => ({...prev, tags: prev.tags.filter(t => t !== 'Only Few Left Hurry')}));
+                  }
+                }}
+              />
+              <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">Only Few Left Hurry</span>
+            </label>
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={form.tags.includes('Highly Recommended')}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setForm(prev => ({...prev, tags: [...prev.tags, 'Highly Recommended']}));
+                  } else {
+                    setForm(prev => ({...prev, tags: prev.tags.filter(t => t !== 'Highly Recommended')}));
+                  }
+                }}
+              />
+              <span className="px-3 py-1 bg-pink-100 text-pink-800 rounded-full text-sm font-medium">Highly Recommended</span>
+            </label>
+          </div>
+        </div>
+
         {/* Services */}
         <div>
           <h4 className="font-medium text-slate-900 mb-3">Services</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" name="secureTransaction" checked={form.secureTransaction} onChange={(e) => setForm(prev => ({...prev, secureTransaction: e.target.checked}))} />
-              <span>Secure Transaction</span>
-            </label>
+          <div className="flex gap-6">
             <label className="flex items-center space-x-2">
               <input type="checkbox" name="payOnDelivery" checked={form.payOnDelivery} onChange={(e) => setForm(prev => ({...prev, payOnDelivery: e.target.checked}))} />
               <span>Pay on Delivery</span>
-            </label>
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" name="easyTracking" checked={form.easyTracking} onChange={(e) => setForm(prev => ({...prev, easyTracking: e.target.checked}))} />
-              <span>Easy Tracking</span>
             </label>
             <label className="flex items-center space-x-2">
               <input type="checkbox" name="freeDelivery" checked={form.freeDelivery} onChange={(e) => setForm(prev => ({...prev, freeDelivery: e.target.checked}))} />
@@ -195,26 +207,13 @@ const AddProduct = () => {
           </div>
         </div>
 
-        {/* Shipping */}
+        {/* Shipping & Returns */}
         <div>
-          <h4 className="font-medium text-slate-900 mb-3">Shipping & Returns</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="flex items-center space-x-2 mb-2">
-                <input type="checkbox" name="isFreeShipping" checked={form.isFreeShipping} onChange={(e) => setForm(prev => ({...prev, isFreeShipping: e.target.checked}))} />
-                <span>Free Shipping</span>
-              </label>
-              <input className="border rounded-lg px-3 py-2 w-full" name="shippingType" placeholder="Shipping Type" onChange={onChange} value={form.shippingType} />
-              <input className="border rounded-lg px-3 py-2 w-full mt-2" name="estimatedDelivery" placeholder="Estimated Delivery" onChange={onChange} value={form.estimatedDelivery} />
-            </div>
-            <div>
-              <label className="flex items-center space-x-2 mb-2">
-                <input type="checkbox" name="isReturnable" checked={form.isReturnable} onChange={(e) => setForm(prev => ({...prev, isReturnable: e.target.checked}))} />
-                <span>Returnable</span>
-              </label>
-              <textarea className="border rounded-lg px-3 py-2 w-full" rows="3" name="returnPolicy" placeholder="Return Policy" onChange={onChange} value={form.returnPolicy} />
-            </div>
-          </div>
+          <h4 className="font-medium text-slate-900 mb-3">Returns</h4>
+          <label className="flex items-center space-x-2">
+            <input type="checkbox" name="isReturnable" checked={form.isReturnable} onChange={(e) => setForm(prev => ({...prev, isReturnable: e.target.checked}))} />
+            <span>Product is Returnable</span>
+          </label>
         </div>
 
         {/* Actions */}

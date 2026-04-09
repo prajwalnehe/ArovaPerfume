@@ -134,24 +134,12 @@ export const getProducts = async (req, res) => {
   try {
     const { category, subcategory, gender, q } = req.query;
     const query = {};
-    const normalizedGender = normalizeGender(gender || category);
 
-    if (normalizedGender && category) {
-      const term = normalizeCategoryTerm(category);
-      const categoryRegex = new RegExp(escapeRegex(term), 'i');
-      // For category pages like "men"/"women", allow match by gender OR category text.
-      query.$or = [{ gender: normalizedGender }, { category: { $regex: categoryRegex } }];
-    } else if (normalizedGender) {
-      query.gender = normalizedGender;
-    } else if (category) {
-      const term = normalizeCategoryTerm(category);
-      const categoryRegex = new RegExp(escapeRegex(term), 'i');
-      query.$or = [
-        { category: { $regex: categoryRegex } },
-        { subcategory: { $regex: categoryRegex } },
-        { type: { $regex: categoryRegex } },
-        { title: { $regex: categoryRegex } },
-      ];
+    // Filter by category (strict match on category field only)
+    if (category) {
+      const term = category.trim();
+      // Use exact match for category to prevent cross-contamination
+      query.category = { $regex: new RegExp(`^${escapeRegex(term)}$`, 'i') };
     }
 
     if (subcategory) {
@@ -172,7 +160,7 @@ export const getProducts = async (req, res) => {
       }
     }
 
-    const products = await Product.find(query).sort({ createdAt: -1 }).lean();
+    const products = await Product.find(query).sort({ category: 1, createdAt: -1 }).lean();
     return res.json(products.map(toClientShape));
   } catch (error) {
     return res.status(500).json({ message: 'Failed to fetch products', error: error.message });

@@ -593,9 +593,14 @@ const ProductList = ({ defaultCategory } = {}) => {
                                                                 ₹{finalPrice.toLocaleString('en-IN')}
                                                             </p>
                                                             {mrpValue > finalPrice && (
-                                                                <p className="text-xs text-gray-400 line-through">
-                                                                    ₹{mrpValue.toLocaleString('en-IN')}
-                                                                </p>
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="text-xs text-gray-400 line-through">
+                                                                        ₹{mrpValue.toLocaleString('en-IN')}
+                                                                    </p>
+                                                                    <span className="text-xs font-medium text-green-600">
+                                                                        {Math.round(((mrpValue - finalPrice) / mrpValue) * 100)}% off
+                                                                    </span>
+                                                                </div>
                                                             )}
 
                                                             <button

@@ -64,7 +64,6 @@ const Products = () => {
                 <th className="text-left px-4 py-3">Title</th>
                 <th className="text-left px-4 py-3">Brand</th>
                 <th className="text-left px-4 py-3">Category</th>
-                <th className="text-left px-4 py-3">Gender</th>
                 <th className="text-left px-4 py-3">Price</th>
                 <th className="text-left px-4 py-3">Stock</th>
                 <th className="text-left px-4 py-3">Actions</th>
@@ -76,7 +75,6 @@ const Products = () => {
                 const title = p.title || p.name || 'Untitled'
                 const brand = p.brand || '-'
                 const category = p.category || p.catagory || '-'
-                const gender = p.gender || '-'
                 
                 // Extract price from pricing object (new model) or fallback to old structure
                 const salePrice = p.pricing?.salePrice || p.salePrice || p.price
@@ -101,15 +99,6 @@ const Products = () => {
                         <div className="font-medium">{category}</div>
                         {p.subcategory && <div className="text-xs text-slate-500">{p.subcategory}</div>}
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        gender === 'Men' ? 'bg-blue-100 text-blue-800' :
-                        gender === 'Women' ? 'bg-pink-100 text-pink-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {gender}
-                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <div>
