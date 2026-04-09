@@ -35,7 +35,7 @@ const EditProduct = () => {
       try {
         setLoading(true)
         const res = await productsAPI.getById(id)
-        const p = res?.data?.data
+        const p = res?.data
         if (!p) return
         setForm({
           title: p.title || '',
