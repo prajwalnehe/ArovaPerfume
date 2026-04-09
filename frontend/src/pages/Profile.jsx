@@ -37,7 +37,7 @@ export default function Profile() {
   const navigate = useNavigate();
 
   // Order Timeline Component
-  const OrderTimeline = ({ status }) => {
+  const OrderTimeline = ({ status, compact = false }) => {
     const steps = [
       { key: 'pending', label: 'Pending', icon: '⏳' },
       { key: 'confirmed', label: 'Confirmed', icon: '⏳' },
@@ -53,6 +53,58 @@ export default function Profile() {
     // Find current step index
     let currentIndex = steps.findIndex(s => s.key === currentStatus);
     if (currentIndex === -1) currentIndex = 0;
+    
+    if (compact) {
+      // Compact horizontal timeline for order cards
+      return (
+        <div className="py-2">
+          <div className="flex items-center justify-between">
+            {steps.map((step, index) => {
+              const isCompleted = index <= currentIndex && !cancelled;
+              const isCurrent = index === currentIndex && !cancelled && !returned;
+              
+              return (
+                <div key={step.key} className="flex flex-col items-center flex-1 relative">
+                  {/* Connector line */}
+                  {index < steps.length - 1 && (
+                    <div className={`absolute top-3 left-1/2 w-full h-0.5 ${
+                      index < currentIndex ? 'bg-green-500' : 'bg-gray-200'
+                    }`} style={{ transform: 'translateX(50%)' }} />
+                  )}
+                  
+                  {/* Step circle - smaller for compact */}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs border-2 z-10 ${
+                    isCompleted 
+                      ? 'bg-green-500 border-green-500 text-white' 
+                      : isCurrent
+                        ? 'bg-blue-500 border-blue-500 text-white'
+                        : 'bg-gray-100 border-gray-300 text-gray-400'
+                  }`}>
+                    {isCompleted ? '✓' : step.icon}
+                  </div>
+                  
+                  {/* Step label - smaller */}
+                  <span className={`text-[10px] mt-1 ${
+                    isCompleted || isCurrent ? 'text-gray-700' : 'text-gray-400'
+                  }`}>
+                    {step.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          
+          {(cancelled || returned) && (
+            <div className={`mt-2 p-2 rounded text-center text-xs ${
+              cancelled ? 'bg-red-50 text-red-700' : 'bg-orange-50 text-orange-700'
+            }`}>
+              <span className="mr-1">{cancelled ? '❌' : '🔄'}</span>
+              Order {cancelled ? 'Cancelled' : 'Returned'}
+            </div>
+          )}
+        </div>
+      );
+    }
     
     return (
       <div className="py-4">
@@ -640,9 +692,9 @@ export default function Profile() {
                             </div>
                           </div>
 
-                          {/* Order Timeline */}
+                          {/* Order Timeline - Compact for list view */}
                           <div className="px-4 py-2 bg-white border-b border-gray-100">
-                            <OrderTimeline status={order.orderStatus || order.status} />
+                            <OrderTimeline status={order.orderStatus || order.status} compact={true} />
                           </div>
 
                           {/* Products */}
