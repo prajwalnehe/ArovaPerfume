@@ -324,13 +324,23 @@ const OrderDetails = () => {
                   <span className="text-slate-900">{formatPrice(order.itemsPrice ?? items.reduce((sum, it) => sum + ((it.price || 0) * (it.quantity || 1)), 0))}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Tax (5%)</span>
-                  <span className="text-slate-900">{formatPrice(order.taxPrice ?? Math.round((order.itemsPrice ?? items.reduce((sum, it) => sum + ((it.price || 0) * (it.quantity || 1)), 0)) * 0.05))}</span>
+                  <span className="text-slate-600">
+                    Tax {(() => {
+                      const ip = order.itemsPrice ?? items.reduce((sum, it) => sum + ((it.price || 0) * (it.quantity || 1)), 0);
+                      const tp = order.taxPrice ?? 0;
+                      if (ip > 0 && tp > 0) {
+                        const pct = Math.round((tp / ip) * 100);
+                        return `(${pct}%)`;
+                      }
+                      return '';
+                    })()}
+                  </span>
+                  <span className="text-slate-900">{formatPrice(order.taxPrice ?? 0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Shipping</span>
                   <span className={order.shippingPrice === 0 ? 'text-green-600' : 'text-slate-900'}>
-                    {order.shippingPrice === 0 ? 'FREE' : formatPrice(order.shippingPrice ?? 99)}
+                    {(order.shippingPrice ?? 0) === 0 ? 'FREE' : formatPrice(order.shippingPrice ?? 0)}
                   </span>
                 </div>
                 {(order.discount ?? order.couponDiscount) > 0 && (

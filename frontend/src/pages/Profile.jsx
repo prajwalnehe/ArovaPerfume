@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../utils/api';
-import { getMyAddress, getMyOrders } from '../services/api';
+import { getMyAddress, getMyOrders, fetchPricingSettings } from '../services/api';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { FiSettings, FiUser, FiPackage, FiMapPin, FiLogOut, FiRefreshCw, FiShoppingBag, FiMail, FiPhone, FiEdit2, FiHeart, FiHome } from 'react-icons/fi';
 import ProductImage from '../components/ProductImage';
@@ -33,6 +33,12 @@ export default function Profile() {
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [pricingSettings, setPricingSettings] = useState({
+    taxPercentage: 5,
+    shippingCharge: 50,
+    freeShippingMinAmount: 500,
+    isFreeShippingEnabled: true
+  });
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -265,6 +271,9 @@ export default function Profile() {
   const refreshOrders = async () => {
     try {
       setLoadingOrders(true);
+      // Fetch pricing settings first
+      const settings = await fetchPricingSettings();
+      setPricingSettings(settings);
       const data = await getMyOrders();
       // Handle new API response format: { success: true, orders: [...], count: n }
       const ordersArray = data?.orders || (Array.isArray(data) ? data : []);
@@ -664,15 +673,25 @@ export default function Profile() {
                       const dateTime = formatDate(order.createdAt);
                       const totalItems = order.items?.reduce((sum, it) => sum + (it.quantity || 1), 0) || 0;
                       
-                      // Use priceDetails from backend if available, otherwise calculate
+                      // Use priceDetails from backend if available, otherwise calculate with dynamic settings
                       // Use ?? (nullish coalescing) to preserve 0 as valid value
                       const priceDetails = order.priceDetails ?? {};
                       const itemsPrice = priceDetails.itemsPrice ?? order.items?.reduce((sum, it) => sum + ((it.price || 0) * (it.quantity || 1)), 0) ?? 0;
-                      const taxPrice = priceDetails.taxPrice ?? Math.round(itemsPrice * 0.05) ?? 0;
-                      const shippingPrice = priceDetails.shippingPrice ?? (itemsPrice >= 5000 ? 0 : 99) ?? 0;
-                      const discount = priceDetails.discount ?? 0;
+                      
+                      // Dynamic tax calculation
+                      const taxPrice = priceDetails.taxPrice ?? Math.round(itemsPrice * (pricingSettings.taxPercentage / 100)) ?? 0;
+                      
+                      // Dynamic shipping calculation
+                      let calculatedShipping = pricingSettings.shippingCharge;
+                      if (pricingSettings.isFreeShippingEnabled && itemsPrice >= pricingSettings.freeShippingMinAmount) {
+                        calculatedShipping = 0;
+                      }
+                      const shippingPrice = priceDetails.shippingPrice ?? calculatedShipping ?? 0;
+                      
+                      // Try priceDetails first, then fall back to order fields
+                      const discount = priceDetails.discount ?? order.discount ?? order.couponDiscount ?? 0;
                       const totalPrice = priceDetails.totalPrice ?? (itemsPrice + taxPrice + shippingPrice - discount) ?? order.amount ?? 0;
-                      const couponCode = priceDetails.couponCode;
+                      const couponCode = priceDetails.couponCode ?? order.couponCode;
                       
                       return (
                         <div 
@@ -761,7 +780,7 @@ export default function Profile() {
                                 <span className="text-gray-900">₹{itemsPrice.toLocaleString('en-IN')}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-600">Tax (5%)</span>
+                                <span className="text-gray-600">Tax ({pricingSettings.taxPercentage}%)</span>
                                 <span className="text-gray-900">₹{taxPrice.toLocaleString('en-IN')}</span>
                               </div>
                               <div className="flex justify-between">
@@ -894,11 +913,21 @@ export default function Profile() {
                       <h3 className="text-sm font-semibold text-gray-700 mb-3">Price Details</h3>
                       {(() => {
                         const pd = selectedOrder.priceDetails || {};
-                        const itemsTotal = pd.itemsPrice || selectedOrder.items?.reduce((sum, it) => sum + ((it.price || 0) * (it.quantity || 1)), 0) || 0;
-                        const tax = pd.taxPrice || Math.round(itemsTotal * 0.05) || 0;
-                        const shipping = pd.shippingPrice || (itemsTotal >= 5000 ? 0 : 99) || 0;
-                        const disc = pd.discount || 0;
-                        const total = pd.totalPrice || (itemsTotal + tax + shipping - disc) || selectedOrder.amount || 0;
+                        const itemsTotal = pd.itemsPrice ?? selectedOrder.items?.reduce((sum, it) => sum + ((it.price || 0) * (it.quantity || 1)), 0) ?? 0;
+                        
+                        // Dynamic tax calculation
+                        const tax = pd.taxPrice ?? Math.round(itemsTotal * (pricingSettings.taxPercentage / 100)) ?? 0;
+                        
+                        // Dynamic shipping calculation
+                        let calculatedShipping = pricingSettings.shippingCharge;
+                        if (pricingSettings.isFreeShippingEnabled && itemsTotal >= pricingSettings.freeShippingMinAmount) {
+                          calculatedShipping = 0;
+                        }
+                        const shipping = pd.shippingPrice ?? calculatedShipping ?? 0;
+                        
+                        // Try priceDetails first, then fall back to order fields
+                        const disc = pd.discount ?? selectedOrder.discount ?? selectedOrder.couponDiscount ?? 0;
+                        const total = pd.totalPrice ?? (itemsTotal + tax + shipping - disc) ?? selectedOrder.amount ?? 0;
                         
                         return (
                           <div className="space-y-2 text-sm">
@@ -907,7 +936,7 @@ export default function Profile() {
                               <span className="text-gray-900">₹{itemsTotal.toLocaleString('en-IN')}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-gray-600">Tax (5%)</span>
+                              <span className="text-gray-600">Tax ({pricingSettings.taxPercentage}%)</span>
                               <span className="text-gray-900">₹{tax.toLocaleString('en-IN')}</span>
                             </div>
                             <div className="flex justify-between">
@@ -916,10 +945,15 @@ export default function Profile() {
                                 {shipping === 0 ? 'FREE' : `₹${shipping.toLocaleString('en-IN')}`}
                               </span>
                             </div>
+                            {pricingSettings.isFreeShippingEnabled && shipping > 0 && (
+                              <div className="text-xs text-amber-600 bg-amber-50 p-1.5 rounded">
+                                💡 Free shipping on orders above ₹{pricingSettings.freeShippingMinAmount}
+                              </div>
+                            )}
                             {disc > 0 && (
                               <div className="flex justify-between">
                                 <span className="text-green-700 font-medium">
-                                  Discount {pd.couponCode && `(${pd.couponCode})`}
+                                  Discount {(pd.couponCode ?? selectedOrder.couponCode) && `(${pd.couponCode ?? selectedOrder.couponCode})`}
                                 </span>
                                 <span className="text-green-600 font-medium">-₹{disc.toLocaleString('en-IN')}</span>
                               </div>
